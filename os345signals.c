@@ -44,6 +44,7 @@ int signals(void)
 			(*tcb[curTask].sigIntHandler)();
 		}
 	}
+	// Add more signals here
 	return 0;
 }
 
@@ -54,13 +55,14 @@ int signals(void)
 //
 int sigAction(void (*sigHandler)(void), int sig)
 {
-	switch (sig)
+	switch (sig) // If I get this signal, I want you to call this signal handler
 	{
 		case mySIGINT:
 		{
 			tcb[curTask].sigIntHandler = sigHandler;		// mySIGINT handler
 			return 0;
 		}
+		// Add more cases here
 	}
 	return 1;
 }

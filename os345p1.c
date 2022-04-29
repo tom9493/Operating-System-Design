@@ -150,20 +150,36 @@ int P1_main(int argc, char* argv[])
 		// ?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 		// look for command
-			//if &, dont do this route. Use create task to run it.  
-		for (found = i = 0; i < NUM_COMMANDS; i++)
+		if (strcmp(newArgv[newArgc - 1], "&") == 0)
 		{
-			if (!strcmp(newArgv[0], commands[i]->command) ||
-				 !strcmp(newArgv[0], commands[i]->shortcut))
+			for (found = i = 0; i < NUM_COMMANDS; i++)
 			{
-				// command found, make implicit call thru function pointer
-				int retValue = (*commands[i]->func)(newArgc, newArgv);
-				if (retValue) printf("\nCommand Error %d", retValue);
-				found = TRUE;
-				break;
+				if (!strcmp(newArgv[0], commands[i]->command) ||
+					!strcmp(newArgv[0], commands[i]->shortcut))
+				{
+					// background task
+					createTask(newArgv[0], *commands[i]->func, HIGH_PRIORITY, newArgc, newArgv);
+					found = TRUE;
+					break;
+				}
 			}
+			if (!found)	printf("\nInvalid command!");
 		}
-		if (!found)	printf("\nInvalid command!");
+		else {
+			for (found = i = 0; i < NUM_COMMANDS; i++)
+			{
+				if (!strcmp(newArgv[0], commands[i]->command) ||
+					!strcmp(newArgv[0], commands[i]->shortcut))
+				{
+					// command found, make implicit call thru function pointer
+					int retValue = (*commands[i]->func)(newArgc, newArgv);
+					if (retValue) printf("\nCommand Error %d", retValue);
+					found = TRUE;
+					break;
+				}
+			}
+			if (!found)	printf("\nInvalid command!");
+		}
 
 		// ?? free up any malloc'd argv parameters
 		for (i=0; i<INBUF_SIZE; i++) inBuffer[i] = 0;
