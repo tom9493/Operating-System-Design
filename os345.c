@@ -99,6 +99,7 @@ int* rq;							// ready priority queue
 //
 int main(int argc, char* argv[])
 {
+
 	// save context for restart (a system reset would return here...)
 	int resetCode = setjmp(reset_context);
 	superMode = TRUE;						// supervisor mode

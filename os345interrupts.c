@@ -60,6 +60,8 @@ extern int lastPollClock;			// last pollClock
 
 extern int superMode;						// system mode
 
+static char** commands[50];
+
 
 // **********************************************************************
 // **********************************************************************
@@ -125,6 +127,57 @@ static void keyboard_isr()
 			{
 				sigSignal(-1, mySIGTSTP);
 				break;
+			}
+
+			case 0x08:
+			{
+				if (strlen(inBuffer) != 0)
+				{
+					inBufIndx = strlen(inBuffer) - 1;
+					inBuffer[inBufIndx] = 0;
+					printf("\b \b");
+				}
+				break;
+			}
+
+			case 0x24:
+			{
+				switch (GET_CHAR)
+				{
+					case 'A':		// arrow up
+					{
+						printf("\n made it! \n");
+						char* string = "howdy";
+						while (strlen(inBuffer) != 0)
+						{
+							inBufIndx = strlen(inBuffer) - 1;
+							inBuffer[inBufIndx] = 0;
+							printf("\b \b");
+						}
+						strcpy(inBuffer, string);
+						break;
+					}
+
+					case 'B':		// arrow down
+					{
+						break;
+					}
+
+					case 'C':		// arrow right
+					{
+						break;
+					}
+
+					case 'D':		// arrow left
+					{
+						break;
+					}
+
+					default: 
+					{
+						printf("Got here");
+					}
+				}
 			}
 
 			default:
