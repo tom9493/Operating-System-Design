@@ -106,12 +106,24 @@ static void keyboard_isr()
 				break;
 			}
 
+			case 0x12:						// ^r
+			{
+				sigSignal(-1, mySIGCONT);
+				break;
+			}
+
 			case 0x18:						// ^x
 			{
 				inBufIndx = 0;
 				inBuffer[0] = 0;
 				sigSignal(0, mySIGINT);		// interrupt task 0
 				semSignal(inBufferReady);	// SEM_SIGNAL(inBufferReady)
+				break;
+			}
+
+			case 0x17:						// ^w
+			{
+				sigSignal(-1, mySIGTSTP);
 				break;
 			}
 

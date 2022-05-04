@@ -73,7 +73,13 @@ int createTask(char* name,						// task name
 			tcb[tid].argc = argc;			// argument count
 
 			// ?? malloc new argv parameters
-			tcb[tid].argv = argv;			// argument pointers
+			tcb[tid].argv = (char**)malloc(argc * sizeof(char*));	// argument pointers
+
+			for (int i = 0; i < argc; i++)
+			{
+				tcb[tid].argv[i] = (char*)malloc(strlen(argv[i]) + 1);
+				strcpy(tcb[tid].argv[i], argv[i]);
+			}
 
 			tcb[tid].event = 0;				// suspend semaphore
 			tcb[tid].RPT = 0;					// root page table (project 5)
@@ -174,6 +180,8 @@ int sysKillTask(int taskId)
 	}
 
 	// ?? delete task from system queues
+	for (int i = 0; i < tcb[taskId].argc; i++) free(tcb[taskId].argv[i]);
+	free(tcb[taskId].argv);
 
 	tcb[taskId].name = 0;			// release tcb slot
 	return 0;

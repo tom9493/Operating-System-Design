@@ -6,12 +6,12 @@
 // Signals
 #define SIG_SIGNAL(t,s)		sigSignal(t,s);
 
-#define mySIGCONT			0x0001
-#define mySIGINT			0x0002
+#define mySIGCONT			0x0001		// This
+#define mySIGINT			0x0002		// This
 #define mySIGKILL			0x0004
 #define mySIGTERM			0x0008
-#define mySIGTSTP			0x0010
-#define mySIGSTOP			0x8000
+#define mySIGTSTP			0x0010		// This
+#define mySIGSTOP			0x8000		
 
 int sigAction(void (*sigHandler)(void), int sig);
 int sigSignal(int taskId, int sig);

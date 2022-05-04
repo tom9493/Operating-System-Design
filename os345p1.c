@@ -49,9 +49,33 @@ int verbose = 0;
 Command** P1_init(void);
 Command* newCommand(char*, char*, int (*func)(int, char**), char*);
 
+
+void mySigContHandler(void)
+{
+	printf("\nContinued");
+	fflush(stdout);
+	return;
+}
+
 void mySigIntHandler(void)
 {
-	printf("Hellomynameisinigomontoyayoukilledmyfatherpreparetodie");
+	//printf("\nIn mySigIntHandler\n");
+	//fflush(stdout);
+	sigSignal(-1, mySIGTERM);
+}
+
+void mySigTermHandler(void)
+{
+	//printf("\nIn mySigTermHandler\n");
+	//fflush(stdout);
+	killTask(curTask);
+}
+
+void mySigTstpHandler(void)
+{
+	printf("\nStopped");
+	fflush(stdout);
+	sigSignal(-1, mySIGSTOP);
 }
 
 // ***********************************************************************
@@ -77,7 +101,9 @@ int P1_main(int argc, char* argv[])
 	commands = P1_init();					// init shell commands
 
 	sigAction(mySigIntHandler, mySIGINT);
-
+	sigAction(mySigContHandler, mySIGCONT);
+	sigAction(mySigTstpHandler, mySIGTSTP);
+	sigAction(mySigTermHandler, mySIGTERM);
 
 	while (1)
 	{
@@ -137,9 +163,9 @@ int P1_main(int argc, char* argv[])
 
 			for (int i = 0; i < newArgc; ++i)
 			{
-				if (myArgv[i][0] == '\"' && myArgv[i][sizeof(myArgv[i])] == '\"')
+				if (myArgv[i][0] == '\"' && myArgv[i][strlen(myArgv[i]) - 1] == '\"')
 				{ 
-					myArgv[i][sizeof(myArgv[i])] = '\0';
+					myArgv[i][strlen(myArgv[i]) - 1] = '\0';
 					char* p = myArgv[i]; p++;
 					strcpy(myArgv[i], p);
 				}
@@ -154,8 +180,8 @@ int P1_main(int argc, char* argv[])
 		{
 			for (found = i = 0; i < NUM_COMMANDS; i++)
 			{
-				if (!strcmp(newArgv[0], commands[i]->command) ||
-					!strcmp(newArgv[0], commands[i]->shortcut))
+				if (!stricmp(newArgv[0], commands[i]->command) ||
+					!stricmp(newArgv[0], commands[i]->shortcut))
 				{
 					// background task
 					createTask(newArgv[0], *commands[i]->func, HIGH_PRIORITY, newArgc, newArgv);
@@ -168,8 +194,8 @@ int P1_main(int argc, char* argv[])
 		else {
 			for (found = i = 0; i < NUM_COMMANDS; i++)
 			{
-				if (!strcmp(newArgv[0], commands[i]->command) ||
-					!strcmp(newArgv[0], commands[i]->shortcut))
+				if (!stricmp(newArgv[0], commands[i]->command) ||
+					!stricmp(newArgv[0], commands[i]->shortcut))
 				{
 					// command found, make implicit call thru function pointer
 					int retValue = (*commands[i]->func)(newArgc, newArgv);
@@ -312,7 +338,8 @@ int P1_add(int argc, char* argv[])
 	int total = 0;
 	for (int i = 1; i < argc; i++)
 	{
-		total += (int)strtol(argv[i], NULL, 0);
+		if (argv[i][0] == '%') { total += (int)strtol(argv[i] + 1, NULL, 2); }
+		else { total += (int)strtol(argv[i], NULL, 0); }
 	}
 	printf("\nTotal of digits: %ld\n", total);
 	fflush(stdout);
