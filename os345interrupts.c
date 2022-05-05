@@ -1,4 +1,4 @@
-// os345interrupts.c - pollInterrupts	06/21/2020
+﻿// os345interrupts.c - pollInterrupts	06/21/2020
 // ***********************************************************************
 // **   DISCLAMER ** DISCLAMER ** DISCLAMER ** DISCLAMER ** DISCLAMER   **
 // **                                                                   **
@@ -60,8 +60,10 @@ extern int lastPollClock;			// last pollClock
 
 extern int superMode;						// system mode
 
-static char** commands[50];
-
+char** c;
+int cSize;
+int cIndex;
+int check;
 
 // **********************************************************************
 // **********************************************************************
@@ -77,7 +79,7 @@ void pollInterrupts(void)
 	// check for keyboard interrupt
 	if ((inChar = GET_CHAR) > 0)
 	{
-	  keyboard_isr();
+		keyboard_isr();
 	}
 
 	// timer interrupt
@@ -102,7 +104,17 @@ static void keyboard_isr()
 		{
 			case '\r':
 			case '\n':
-			{
+			{				
+				if (c == NULL)
+				{
+					c = (char**)malloc(50 * sizeof(char*));
+					cSize = 0;
+					cIndex = 0;
+				}
+				c[cSize] = (char*)malloc(strlen(inBuffer));
+				strcpy(c[cSize++], inBuffer);
+				cIndex = cSize - 1;
+
 				inBufIndx = 0;				// EOL, signal line ready
 				semSignal(inBufferReady);	// SIGNAL(inBufferReady)
 				break;
@@ -131,7 +143,7 @@ static void keyboard_isr()
 
 			case 0x08:
 			{
-				if (strlen(inBuffer) != 0)
+				if (strlen(inBuffer) != 0 && inBufIndx == strlen(inBuffer))
 				{
 					inBufIndx = strlen(inBuffer) - 1;
 					inBuffer[inBufIndx] = 0;
@@ -140,50 +152,70 @@ static void keyboard_isr()
 				break;
 			}
 
-			case 0x24:
+			case 0x0F:					// ^o (up)
 			{
-				switch (GET_CHAR)
+				if (cSize > 0 && cIndex >= 0) 
 				{
-					case 'A':		// arrow up
+					while (strlen(inBuffer) != 0)
 					{
-						printf("\n made it! \n");
-						char* string = "howdy";
-						while (strlen(inBuffer) != 0)
-						{
-							inBufIndx = strlen(inBuffer) - 1;
-							inBuffer[inBufIndx] = 0;
-							printf("\b \b");
-						}
-						strcpy(inBuffer, string);
-						break;
+						inBufIndx = strlen(inBuffer) - 1;
+						inBuffer[inBufIndx] = 0;
+						printf("\b \b");
 					}
-
-					case 'B':		// arrow down
-					{
-						break;
-					}
-
-					case 'C':		// arrow right
-					{
-						break;
-					}
-
-					case 'D':		// arrow left
-					{
-						break;
-					}
-
-					default: 
-					{
-						printf("Got here");
-					}
+					if (check == 1) { cIndex -= 2; }
+					printf("%s", c[cIndex]);
+					strcpy(inBuffer, c[cIndex]);
+					if (cIndex != 0) { cIndex--; }
+					check = 0;
+					inBufIndx = strlen(inBuffer);
 				}
+				break;
+			}
+
+			case 0x0C:					// ^l (down)
+			{
+				if (cSize > 0 && cIndex < cSize)
+				{
+					while (strlen(inBuffer) != 0)
+					{
+						inBufIndx = strlen(inBuffer) - 1;
+						inBuffer[inBufIndx] = 0;
+						printf("\b \b");
+					}
+					if (check == 0) { cIndex += 2; }
+					printf("%s", c[cIndex]);
+					strcpy(inBuffer, c[cIndex]);
+					if (cIndex != cSize - 1) { cIndex++; }
+					check = 1;
+					inBufIndx = strlen(inBuffer);
+				}
+				break;
+			}
+
+			case 0x09:					// ^i (left)
+			{
+				if (inBufIndx > 0)
+				{
+					inBufIndx--;
+					printf("\b");
+				}
+				break;
+			}
+
+			case 0x10:					// ^p (right)
+			{
+				if (inBufIndx < strlen(inBuffer))
+				{
+					inBufIndx++;
+					printf("%c", inBuffer[inBufIndx - 1]);
+				}
+				break;
 			}
 
 			default:
 			{
 				inBuffer[inBufIndx++] = inChar;
-				inBuffer[inBufIndx] = 0;
+				if (inBufIndx == strlen(inBuffer)) { inBuffer[inBufIndx] = 0; }
 				printf("%c", inChar);		// echo character
 			}
 		}
