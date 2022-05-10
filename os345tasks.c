@@ -37,6 +37,7 @@ extern Semaphore* semaphoreList;			// linked list of active semaphores
 extern Semaphore* taskSems[MAX_TASKS];		// task semaphore
 
 
+
 // **********************************************************************
 // **********************************************************************
 // create task
@@ -51,12 +52,12 @@ int createTask(char* name,						// task name
 	// find an open tcb entry slot
 	for (tid = 0; tid < MAX_TASKS; tid++)
 	{
-		if (tcb[tid].name == 0)
+		if (tcb[tid].name == 0)	// tcb task at index tid will have name == 0 if no task is there. Safe to insert one here.
 		{
 			char buf[8];
 
 			// create task semaphore
-			if (taskSems[tid]) deleteSemaphore(&taskSems[tid]);
+			if (taskSems[tid]) deleteSemaphore(&taskSems[tid]); // If there was a semaphore associated with this task, delete
 			sprintf(buf, "task%d", tid);
 			taskSems[tid] = createSemaphore(buf, 0, 0);
 			taskSems[tid]->taskNum = 0;	// assign to shell
@@ -92,6 +93,7 @@ int createTask(char* name,						// task name
 			tcb[tid].stack = malloc(STACK_SIZE * sizeof(int));
 
 			// ?? may require inserting task into "ready" queue
+			enQ(rq, tid, HIGH_PRIORITY);
 
 			if (tid) swapTask();				// do context switch (if not cli)
 			return tid;							// return tcb index (curTask)

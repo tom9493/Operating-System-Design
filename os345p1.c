@@ -21,8 +21,10 @@
 #include <ctype.h>
 #include <setjmp.h>
 #include <assert.h>
+
 #include "os345.h"
 #include "os345signals.h"
+
 
 // The 'reset_context' comes from 'main' in os345.c.  Proper shut-down
 // procedure is to long jump to the 'reset_context' passing in the
@@ -129,6 +131,8 @@ int P1_main(int argc, char* argv[])
 			sp = sp2 = inBuffer;				// point to input string
 			for (i=1; i<MAX_ARGS; i++) myArgv[i] = 0;
 
+			int check = 0;
+
 			// parse input string
 			while ((sp = strchr(sp, ' ')))
 			{
@@ -142,13 +146,23 @@ int P1_main(int argc, char* argv[])
 					sp = strchr(sp, '\"');
 					*sp++ = 0;		
 					*sp++ = 0;
+					check = 1;
 				} 
-				else { *sp++ = 0; }
+				else { *sp++ = 0; check = 0; } // No quotes so continue normally
 
-				if (strcmp(sp2, "") != 0)
+				if (strcmp(sp2, "") != 0)		// If not at the end of the string?
 				{
 					myArgv[newArgc] = (char*)malloc(strlen(sp2) + 1);
 					strcpy(myArgv[newArgc], sp2);
+
+					if (check == 0) // If not quoted, argument becomes lowercase 
+					{ 
+						for (int i = 0; i < strlen(myArgv[newArgc]); i++) 
+						{
+							myArgv[newArgc][i] = tolower(myArgv[newArgc][i]);
+						}
+					}
+
 					newArgc++;
 					sp2 = sp;
 				}

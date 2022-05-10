@@ -2,6 +2,7 @@
 //
 //		03/12/2015	enum'd accessPage
 //
+
 #ifndef __os345_h__
 #define __os345_h__
 #define _CRT_SECURE_NO_WARNINGS
@@ -71,6 +72,19 @@ enum {PAGE_INIT, PAGE_READ, PAGE_OLD_WRITE, PAGE_NEW_WRITE,
 typedef int bool;						// boolean value
 typedef int TID;						// task id
 
+typedef struct
+{
+	int size;
+	struct
+	{
+		int tid;
+		int priority;
+	} q[MAX_TASKS];
+} PQ;
+
+int enQ(PQ, TID, int);
+int deQ(PQ, TID);
+
 // semaphore
 typedef struct semaphore				// semaphore
 {
@@ -79,6 +93,7 @@ typedef struct semaphore				// semaphore
 	int state;							// semaphore state
 	int type;							// semaphore type
 	int taskNum;						// semaphore creator task #
+	PQ* pq;								// semaphore priority queue (Should this be a pointer or no? Hard to malloc without pointer type) 
 } Semaphore;
 
 // task control block

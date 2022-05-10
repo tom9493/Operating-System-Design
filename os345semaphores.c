@@ -212,6 +212,9 @@ Semaphore* createSemaphore(char* name, int type, int state)
 	sem->type = type;							// 0=binary, 1=counting
 	sem->state = state;						// initial semaphore state
 	sem->taskNum = curTask;					// set parent task #
+	sem->pq = (PQ*)malloc(sizeof(PQ));		// Malloc semaphore queue
+											// Another step to init the queue?
+
 
 	// prepend to semaphore list
 	sem->semLink = (struct semaphore*)semaphoreList;

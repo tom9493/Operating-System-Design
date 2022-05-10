@@ -214,6 +214,7 @@ static void keyboard_isr()
 
 			default:
 			{
+				if (inBufIndx > 255) { break; } // prevents buffer overflow
 				inBuffer[inBufIndx++] = inChar;
 				if (inBufIndx == strlen(inBuffer)) { inBuffer[inBufIndx] = 0; }
 				printf("%c", inChar);		// echo character
