@@ -84,7 +84,7 @@ bool diskMounted;					// disk has been mounted
 time_t oldTime1;					// old 1sec time
 clock_t myClkTime;
 clock_t myOldClkTime;
-PQ rq;								// ready priority queue
+PQ* rq;								// ready priority queue
 
 
 // **********************************************************************
@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
 	tics1sec = createSemaphore("tics1sec", BINARY, 0);
 	tics10thsec = createSemaphore("tics10thsec", BINARY, 0);
 
-	//?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	//?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	
 
 	// schedule CLI task
 	createTask("myShell",			// task name
@@ -174,36 +174,36 @@ int main(int argc, char* argv[])
 } // end main
 
 
-int enQ(PQ pq, TID tid, int priority)
+int enQ(PQ* pq, TID tid, int priority)
 {
-	for (int i = pq.size; i >= 0; --i)
+	for (int i = pq->size; i >= 0; --i)
 	{
-		pq.q[i + 1] = pq.q[i];
-		if (pq.q[i].priority < priority)		// Found the lower priority, the index above it should be overwritten with the given parameters
+		pq->q[i + 1] = pq->q[i];
+		if (pq->q[i].priority < priority)		// Found the lower priority, the index above it should be overwritten with the given parameters
 		{
-			pq.q[i + 1].tid = tid;
-			pq.q[i + 1].priority = priority;
+			pq->q[i + 1].tid = tid;
+			pq->q[i + 1].priority = priority;
 			break;
 		}
 	}
-	pq.size++;
+	pq->size++;
 	printf("Printing queue after enQ\n");
 	printQueue(pq);
 }
 
-int deQ(PQ pq, TID tid)
+int deQ(PQ* pq, TID tid)
 {
 	if (tid >= 0)
 	{
-		for (int i = 0; i < pq.size; ++i)
+		for (int i = 0; i < pq->size; ++i)
 		{
-			if (pq.q[i].tid == tid)				// Found id, make this tid the return value and delete task from queue
+			if (pq->q[i].tid == tid)				// Found id, make this tid the return value and delete task from queue
 			{
-				int taskId = pq.q[i].tid;		// return id
-				pq.size -= 1;					// size is 1 fewer
-				while (i != pq.size)			// bring all tasks down a value (i stop at size -1 or size? I think this is right. Clear top task?ds)
+				int taskId = pq->q[i].tid;		// return id
+				pq->size -= 1;					// size is 1 fewer
+				while (i != pq->size)			// bring all tasks down a value (i stop at size -1 or size? I think this is right. Clear top task?ds)
 				{
-					pq.q[i] = pq.q[i + 1];
+					pq->q[i] = pq->q[i + 1];
 					++i;
 				}
 				return tid;						// break and stop for loop
@@ -213,20 +213,20 @@ int deQ(PQ pq, TID tid)
 	}
 	else
 	{
-		int taskId = pq.q[pq.size - 1].tid;
-		pq.size -= 1;
+		int taskId = pq->q[pq->size - 1].tid;
+		pq->size -= 1;
 		return taskId;
 	}
 	printf("Printing queue after deQ\n");
 	printQueue(pq);
 }
 
-void printQueue(PQ pq)
+void printQueue(PQ* pq)
 {
-	printf("Queue total size: %d\n", pq.size);
-	for (int i = 0; i < pq.size; ++i)
+	printf("Queue total size: %d\n", pq->size);
+	for (int i = 0; i < pq->size; ++i)
 	{
-		printf("Queue[%d]: \n\ttid: %d\n\tpriority: %d\n", i, pq.q[i].tid, pq.q[i].priority);
+		printf("Queue[%d]: \n\ttid: %d\n\tpriority: %d\n", i, pq->q[i].tid, pq->q[i].priority);
 	}
 }
 
@@ -236,8 +236,9 @@ void printQueue(PQ pq)
 // scheduler
 //
 static int scheduler()
-{
-	int nextTask;
+{  
+	int nextTask;		// Tid of the next task
+
 	// ?? Design and implement a scheduler that will select the next highest
 	// ?? priority ready task to pass to the system dispatcher.
 
@@ -251,6 +252,12 @@ static int scheduler()
 	// ?? This code is simply a round-robin scheduler and is just to get
 	// ?? you thinking about scheduling.  You must implement code to handle
 	// ?? priorities, clean up dead tasks, and handle semaphores appropriately.
+
+	if ((nextTask = deQ(rq, -1)) >= 0)
+	{
+		enQ(rq, nextTask, tcb[nextTask].priority);
+	}
+
 
 	nextTask = 
 
@@ -411,8 +418,9 @@ static int initOS()
 	diskMounted = 0;					// disk has been mounted
 
 	// malloc ready queue
-	rq = (int*)malloc(MAX_TASKS * sizeof(int));
+	rq = (PQ*)malloc(sizeof(PQ));
 	if (rq == NULL) return 99;
+	rq->size = 0;
 
 	// capture current time
 	lastPollClock = clock();			// last pollClock

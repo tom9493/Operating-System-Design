@@ -82,8 +82,8 @@ typedef struct
 	} q[MAX_TASKS];
 } PQ;
 
-int enQ(PQ, TID, int);
-int deQ(PQ, TID);
+int enQ(PQ*, TID, int);
+int deQ(PQ*, TID);
 
 // semaphore
 typedef struct semaphore				// semaphore

@@ -205,6 +205,7 @@ Semaphore* createSemaphore(char* name, int type, int state)
 
 	// allocate memory for new semaphore
 	sem = (Semaphore*)malloc(sizeof(Semaphore));
+	// NOW MALLOC FOR RQ IN SEM
 
 	// set semaphore values
 	sem->name = (char*)malloc(strlen(name)+1);

@@ -29,14 +29,14 @@
 //#include "os345config.h"
 
 
-extern TCB tcb[];							// task control block
+extern TCB tcb[];// task control block
 extern int curTask;							// current task #
 
 extern int superMode;						// system mode
 extern Semaphore* semaphoreList;			// linked list of active semaphores
 extern Semaphore* taskSems[MAX_TASKS];		// task semaphore
 
-
+extern PQ* rq;
 
 // **********************************************************************
 // **********************************************************************
