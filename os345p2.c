@@ -91,7 +91,7 @@ int P2_listTasks(int argc, char* argv[])
 {
 	int i;
 
-//	?? 1) List all tasks in all queues
+// ?? 1) List all tasks in all queues
 // ?? 2) Show the task stake (new, running, blocked, ready)
 // ?? 3) If blocked, indicate which semaphore
 

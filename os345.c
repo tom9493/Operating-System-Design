@@ -176,28 +176,47 @@ int main(int argc, char* argv[])
 
 int enQ(PQ* pq, TID tid, int priority)
 {
-	for (int i = pq->size; i >= 0; --i)
+	//printf("Printing queue before enQ. tid: %d\n", tid);
+	//printQ(pq);
+	if (pq->size == 0)
 	{
-		pq->q[i + 1] = pq->q[i];
-		if (pq->q[i].priority < priority)		// Found the lower priority, the index above it should be overwritten with the given parameters
+		pq->q[0].priority = priority;
+		pq->q[0].tid = tid;
+	}
+	else {
+		for (int i = pq->size - 1; i >= 0; --i)
 		{
-			pq->q[i + 1].tid = tid;
-			pq->q[i + 1].priority = priority;
-			break;
+			pq->q[i + 1] = pq->q[i];
+			if (pq->q[i].priority < priority)		// Found the lower priority, the index above it should be overwritten with the given parameters
+			{
+				pq->q[i + 1].tid = tid;
+				pq->q[i + 1].priority = priority;
+				break;
+			}
+			if (i == 0)
+			{
+				pq->q[i].tid = tid;
+				pq->q[i].priority = priority;
+			}
 		}
 	}
 	pq->size++;
-	printf("Printing queue after enQ\n");
-	printQueue(pq);
+	//printf("\nPrinting queue after enQ\n");
+	//printQ(pq);
+	return tid;
 }
 
 int deQ(PQ* pq, TID tid)
 {
+	//printf("size before deQ: %d\n", pq->size);
+	//fflush(stdout);
+	//printf("Printing queue before deQ\n");
+	//printQ(pq);
 	if (tid >= 0)
 	{
 		for (int i = 0; i < pq->size; ++i)
 		{
-			if (pq->q[i].tid == tid)				// Found id, make this tid the return value and delete task from queue
+			if (pq->q[i].tid == tid)			// Found id, make this tid the return value and delete task from queue
 			{
 				int taskId = pq->q[i].tid;		// return id
 				pq->size -= 1;					// size is 1 fewer
@@ -206,6 +225,8 @@ int deQ(PQ* pq, TID tid)
 					pq->q[i] = pq->q[i + 1];
 					++i;
 				}
+				//printf("Printing queue after deQ\n");
+				//printQ(pq);
 				return tid;						// break and stop for loop
 			}
 		}
@@ -213,21 +234,26 @@ int deQ(PQ* pq, TID tid)
 	}
 	else
 	{
+		if (pq->size == 0) { return -1; }		
 		int taskId = pq->q[pq->size - 1].tid;
 		pq->size -= 1;
+		//printf("Printing queue after deQ\n");
+		//printQ(pq);
+		//printf("taskId returned: %d\n", taskId);
+		//fflush(stdout);
 		return taskId;
 	}
-	printf("Printing queue after deQ\n");
-	printQueue(pq);
 }
 
-void printQueue(PQ* pq)
+void printQ(PQ* pq)
 {
 	printf("Queue total size: %d\n", pq->size);
 	for (int i = 0; i < pq->size; ++i)
 	{
 		printf("Queue[%d]: \n\ttid: %d\n\tpriority: %d\n", i, pq->q[i].tid, pq->q[i].priority);
 	}
+	printf("\n\n");
+	fflush(stdout);
 }
 
 
@@ -258,19 +284,20 @@ static int scheduler()
 		enQ(rq, nextTask, tcb[nextTask].priority);
 	}
 
+	//tcb[nextTask].state = S_RUNNING;
 
-	nextTask = 
+	// nextTask = 
 
 
-	// schedule next task								<-- Original start
+	// schedule next task								//<-- Original start
 	//nextTask = ++curTask;
 
-	//// mask sure nextTask is valid
-	//while (!tcb[nextTask].name)
-	//{
-	//	if (++nextTask >= MAX_TASKS) nextTask = 0;
-	//}
-	//if (tcb[nextTask].signal & mySIGSTOP) return -1;	<-- Original end
+	// mask sure nextTask is valid
+	while (!tcb[nextTask].name)
+	{
+		if (++nextTask >= MAX_TASKS) nextTask = 0;
+	}
+	if (tcb[nextTask].signal & mySIGSTOP) return -1;	//<-- Original end
 
 	return nextTask;
 } // end scheduler

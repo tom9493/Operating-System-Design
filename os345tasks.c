@@ -93,7 +93,12 @@ int createTask(char* name,						// task name
 			tcb[tid].stack = malloc(STACK_SIZE * sizeof(int));
 
 			// ?? may require inserting task into "ready" queue
-			enQ(rq, tid, HIGH_PRIORITY);
+			printf("\nBefore enQ in createTask. tid: %d\n", tid);
+			printQ(rq);
+			fflush(stdout);
+			enQ(rq, tid, priority);
+			printf("rq after enQ in createTask:\n");
+			printQ(rq);
 
 			if (tid) swapTask();				// do context switch (if not cli)
 			return tid;							// return tcb index (curTask)
@@ -142,8 +147,11 @@ static void exitTask(int taskId)
 	// 1. find task in system queue
 	// 2. if blocked, unblock (handle semaphore)
 	// 3. set state to exit
-
+	
 	// ?? add code here
+
+	deQ(rq, taskId);
+	deQ(taskSems[taskId]->pq, taskId);
 
 	tcb[taskId].state = S_EXIT;			// EXIT task state
 	return;
@@ -182,6 +190,7 @@ int sysKillTask(int taskId)
 	}
 
 	// ?? delete task from system queues
+	deQ(rq, taskId);
 	for (int i = 0; i < tcb[taskId].argc; i++) free(tcb[taskId].argv[i]);
 	free(tcb[taskId].argv);
 

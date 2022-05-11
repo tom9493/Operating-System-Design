@@ -84,6 +84,7 @@ typedef struct
 
 int enQ(PQ*, TID, int);
 int deQ(PQ*, TID);
+void printQ(PQ*);
 
 // semaphore
 typedef struct semaphore				// semaphore

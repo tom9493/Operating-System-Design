@@ -198,7 +198,7 @@ int P1_main(int argc, char* argv[])
 					!stricmp(newArgv[0], commands[i]->shortcut))
 				{
 					// background task
-					createTask(newArgv[0], *commands[i]->func, HIGH_PRIORITY, newArgc, newArgv);
+					createTask(newArgv[0], *commands[i]->func, MED_PRIORITY, newArgc, newArgv);
 					found = TRUE;
 					break;
 				}

@@ -32,6 +32,7 @@ extern int curTask;							// current task #
 
 extern int superMode;						// system mode
 extern Semaphore* semaphoreList;			// linked list of active semaphores
+extern PQ* rq;
 
 
 // **********************************************************************
@@ -63,6 +64,8 @@ temp:	// ?? temporary label
 				tcb[i].state = S_READY;	// unblock task
 
 				// ?? move task from blocked to ready queue
+				deQ(s->pq, i);
+				enQ(rq, i, tcb[i].priority);
 
 				if (!superMode) swapTask();
 				return;
@@ -110,6 +113,10 @@ temp:	// ?? temporary label
 			tcb[curTask].state = S_BLOCKED;
 
 			// ?? move task from ready queue to blocked queue
+			deQ(rq, curTask);
+			enQ(s->pq, curTask, tcb[curTask].priority);
+			printf("blocked queue: \n");
+			printQ(s->pq);
 
 			swapTask();						// reschedule the tasks
 			return 1;
@@ -205,7 +212,6 @@ Semaphore* createSemaphore(char* name, int type, int state)
 
 	// allocate memory for new semaphore
 	sem = (Semaphore*)malloc(sizeof(Semaphore));
-	// NOW MALLOC FOR RQ IN SEM
 
 	// set semaphore values
 	sem->name = (char*)malloc(strlen(name)+1);
@@ -214,7 +220,7 @@ Semaphore* createSemaphore(char* name, int type, int state)
 	sem->state = state;						// initial semaphore state
 	sem->taskNum = curTask;					// set parent task #
 	sem->pq = (PQ*)malloc(sizeof(PQ));		// Malloc semaphore queue
-											// Another step to init the queue?
+	sem->pq->size = 0;						// Another step to init the queue? IDK
 
 
 	// prepend to semaphore list
@@ -251,6 +257,7 @@ bool deleteSemaphore(Semaphore** semaphore)
 			// ?? free all semaphore memory
 			// ?? What should you do if there are tasks in this
 			//    semaphores blocked queue????
+			free(sem->pq);
 			free(sem->name);
 			free(sem);
 
