@@ -93,12 +93,12 @@ int createTask(char* name,						// task name
 			tcb[tid].stack = malloc(STACK_SIZE * sizeof(int));
 
 			// ?? may require inserting task into "ready" queue
-			printf("\nBefore enQ in createTask. tid: %d\n", tid);
-			printQ(rq);
+			//printf("\nBefore enQ in createTask. tid: %d\n", tid);
+			//printQ(rq);
 			fflush(stdout);
 			enQ(rq, tid, priority);
-			printf("rq after enQ in createTask:\n");
-			printQ(rq);
+			//printf("rq after enQ in createTask:\n");
+			//printQ(rq);
 
 			if (tid) swapTask();				// do context switch (if not cli)
 			return tid;							// return tcb index (curTask)
@@ -150,7 +150,6 @@ static void exitTask(int taskId)
 	
 	// ?? add code here
 
-	deQ(rq, taskId);
 	deQ(taskSems[taskId]->pq, taskId);
 
 	tcb[taskId].state = S_EXIT;			// EXIT task state
@@ -169,7 +168,7 @@ int sysKillTask(int taskId)
 
 	// assert that you are not pulling the rug out from under yourself!
 	assert("sysKillTask Error" && tcb[taskId].name && superMode);
-	printf("\nKill Task %s", tcb[taskId].name);
+	printf("\nKill Task %s\n", tcb[taskId].name);
 
 	// signal task terminated
 	semSignal(taskSems[taskId]);
