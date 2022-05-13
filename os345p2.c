@@ -27,6 +27,7 @@
 
 #define my_printf	printf
 
+
 // ***********************************************************************
 // project 2 variables
 static Semaphore* s1Sem;					// task 1 semaphore
@@ -36,6 +37,10 @@ extern TCB tcb[];								// task control block
 extern int curTask;							// current task #
 extern Semaphore* semaphoreList;			// linked list of active semaphores
 extern jmp_buf reset_context;				// context of kernel stack
+extern PQ* rq;
+extern Semaphore* taskSems[MAX_TASKS];
+
+extern Semaphore* tics10sec;
 
 // ***********************************************************************
 // project 2 functions and tasks
@@ -56,6 +61,61 @@ int P2_main(int argc, char* argv[])
 	SWAP;
 
 	// start tasks looking for sTask semaphores
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
+	createTask("Ten Seconds",				// task name
+		P2_tenSeconds,			// task
+		HIGH_PRIORITY,			// task priority
+		0,							// task argc
+		NULL);				// task argument pointers
+
 	createTask("signal1",				// task name
 					signalTask,				// task
 					VERY_HIGH_PRIORITY,	// task priority
@@ -79,6 +139,11 @@ int P2_main(int argc, char* argv[])
 					LOW_PRIORITY,			// task priority
 					2,							// task argc
 					aliveArgv);				// task argument pointers
+
+
+
+
+
 	return 0;
 } // end P2_project2
 
@@ -95,19 +160,70 @@ int P2_listTasks(int argc, char* argv[])
 // ?? 2) Show the task stake (new, running, blocked, ready)
 // ?? 3) If blocked, indicate which semaphore
 
-	for (i=0; i<MAX_TASKS; i++)
+	for (i = rq->size - 1; i >= 0; i--)	// Original
+	{
+		if (tcb[rq->q[i].tid].name)
+		{
+			printf("\n%4d/%-4d%20s%4d  ", rq->q[i].tid, tcb[rq->q[i].tid].parent,
+				tcb[rq->q[i].tid].name, tcb[rq->q[i].tid].priority);
+			if (tcb[rq->q[i].tid].signal & mySIGSTOP) my_printf("Paused");
+			else if (tcb[rq->q[i].tid].state == S_NEW) my_printf("New");
+			else if (tcb[rq->q[i].tid].state == S_READY) my_printf("Ready");
+			else if (tcb[rq->q[i].tid].state == S_RUNNING) my_printf("Running");
+			else if (tcb[rq->q[i].tid].state == S_BLOCKED)
+			{
+				my_printf("Blocked    %s", tcb[rq->q[i].tid].event->name);
+			}
+			else if (tcb[rq->q[i].tid].state == S_EXIT) my_printf("Exiting");
+			swapTask();
+		}
+	}
+
+	for (int j = 0; j < MAX_ARGS; ++j)
+	{
+		if (taskSems[j])
+		{
+			Semaphore* sem = taskSems[j];
+			for (i = sem->pq->size - 1; i >= 0; i--)
+			{
+				if (tcb[sem->pq->q[i].tid].name)
+				{
+					printf("\n%4d/%-4d%20s%4d  ", sem->pq->q[i].tid, tcb[sem->pq->q[i].tid].parent,
+						tcb[sem->pq->q[i].tid].name, tcb[sem->pq->q[i].tid].priority);
+					if (tcb[sem->pq->q[i].tid].signal & mySIGSTOP) my_printf("Paused");
+					else if (tcb[sem->pq->q[i].tid].state == S_NEW) my_printf("New");
+					else if (tcb[sem->pq->q[i].tid].state == S_READY) my_printf("Ready");
+					else if (tcb[sem->pq->q[i].tid].state == S_RUNNING) my_printf("Running");
+					else if (tcb[sem->pq->q[i].tid].state == S_BLOCKED)
+					{
+						my_printf("Blocked    %s", tcb[sem->pq->q[i].tid].event->name);
+					}
+					else if (tcb[sem->pq->q[i].tid].state == S_EXIT) my_printf("Exiting");
+					swapTask();
+				}
+			}
+		}
+		swapTask();
+	}
+
+	
+	
+	for (i = 0; i < MAX_TASKS; i++)	// Original
 	{
 		if (tcb[i].name)
 		{
-			printf("\n%4d/%-4d%20s%4d  ", i, tcb[i].parent,
-		  				tcb[i].name, tcb[i].priority);
-			if (tcb[i].signal & mySIGSTOP) my_printf("Paused");
+			if (tcb[i].state == S_BLOCKED)
+			{
+				printf("\n%4d/%-4d%20s%4d  ", i, tcb[i].parent,
+				tcb[i].name, tcb[i].priority);
+				my_printf("Blocked    %s", tcb[i].event->name);
+			}
+			/*if (tcb[i].signal & mySIGSTOP) my_printf("Paused");
 			else if (tcb[i].state == S_NEW) my_printf("New");
 			else if (tcb[i].state == S_READY) my_printf("Ready");
 			else if (tcb[i].state == S_RUNNING) my_printf("Running");
-			else if (tcb[i].state == S_BLOCKED) my_printf("Blocked    %s",
-		  				tcb[i].event->name);
-			else if (tcb[i].state == S_EXIT) my_printf("Exiting");
+			
+			else if (tcb[i].state == S_EXIT) my_printf("Exiting");*/
 			swapTask();
 		}
 	}
@@ -217,7 +333,19 @@ int P2_signal2(int argc, char* argv[])		// signal2
 	return 0;
 } // end signal
 
-
+int P2_tenSeconds(int argc, char* argv[])
+{
+	char svtime[40];
+	while (1)
+	{
+		SEM_WAIT(tics10sec);
+		strcpy(svtime, myTime(svtime));
+		printf("\nCurrent task number: %d\n", curTask);
+		printf("Current time: %s\n", svtime);
+		swapTask();
+	}
+	return 0;
+}
 
 // ***********************************************************************
 // ***********************************************************************

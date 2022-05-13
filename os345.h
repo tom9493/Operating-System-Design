@@ -173,7 +173,7 @@ int semTryLock(Semaphore*);
 // ***********************************************************************
 // Command prototypes
 
-#define NUM_COMMANDS 51
+#define NUM_COMMANDS 52
 typedef struct								// command struct
 {
 	char* command;
@@ -197,6 +197,7 @@ int P2_listTasks(int, char**);
 int P2_reset(int, char**);
 int P2_signal1(int, char**);
 int P2_signal2(int, char**);
+int P2_tenSeconds(int, char**);
 
 int P3_main(int, char**);
 int P3_dc(int, char**);

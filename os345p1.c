@@ -423,6 +423,7 @@ Command** P1_init()
 	commands[i++] = newCommand("tasks", "lt", P2_listTasks, "List tasks");
 	commands[i++] = newCommand("signal1", "s1", P2_signal1, "Signal sem1 semaphore");
 	commands[i++] = newCommand("signal2", "s2", P2_signal2, "Signal sem2 semaphore");
+	commands[i++] = newCommand("tenSeconds", "ts", P2_tenSeconds, "Tics 10 seconds");
 
 	// P3: Jurassic Park
 	commands[i++] = newCommand("project3", "p3", P3_main, "P3: Jurassic Park");

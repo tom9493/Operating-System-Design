@@ -61,7 +61,7 @@ temp:	// ?? temporary label
 			{
 				s->state = 0;				// clear semaphore
 				tcb[i].event = 0;			// clear event pointer
-				tcb[i].state = S_READY;	// unblock task
+				tcb[i].state = S_READY;		// unblock task
 
 				// ?? move task from blocked to ready queue
 				deQ(s->pq, i);
@@ -80,8 +80,16 @@ temp:	// ?? temporary label
 	{
 		// counting semaphore
 		// ?? implement counting semaphore
+		//goto temp;
 
-		goto temp;
+		s->state++;
+		int task = deQ(s->pq, -1);
+		tcb[task].event = 0;
+		tcb[task].state = S_READY;
+		enQ(rq, task, tcb[task].priority);
+
+		if (!superMode) swapTask();
+		return;
 	}
 } // end semSignal
 
@@ -127,8 +135,22 @@ temp:	// ?? temporary label
 	{
 		// counting semaphore
 		// ?? implement counting semaphore
+		//goto temp;
+		s->state--;
 
-		goto temp;
+		if (s->state < 0) { 
+			tcb[curTask].event = s;
+			tcb[curTask].state = S_BLOCKED; 
+
+			deQ(rq, curTask);
+			enQ(s->pq, curTask, tcb[curTask].priority);
+
+			swapTask();
+			return 1;
+		}
+
+		return 0;
+		
 	}
 } // end semWait
 
@@ -166,8 +188,13 @@ temp:	// ?? temporary label
 	{
 		// counting semaphore
 		// ?? implement counting semaphore
-
-		goto temp;
+		
+		//goto temp;
+		if (s->state > 0) {
+			s->state--;
+			return 1;
+		}
+		return 0;
 	}
 } // end semTryLock
 

@@ -56,6 +56,7 @@ Semaphore* inBufferReady;			// input buffer ready semaphore
 
 Semaphore* tics1sec;				// 1 second semaphore
 Semaphore* tics10thsec;				// 1/10 second semaphore
+Semaphore* tics10sec;				// 10 second semaphore
 
 // **********************************************************************
 // **********************************************************************
@@ -82,6 +83,7 @@ int lastPollClock;					// last pollClock
 bool diskMounted;					// disk has been mounted
 
 time_t oldTime1;					// old 1sec time
+time_t oldTime2;
 clock_t myClkTime;
 clock_t myOldClkTime;
 PQ* rq;								// ready priority queue
@@ -138,6 +140,7 @@ int main(int argc, char* argv[])
 	keyboard = createSemaphore("keyboard", BINARY, 1);
 	tics1sec = createSemaphore("tics1sec", BINARY, 0);
 	tics10thsec = createSemaphore("tics10thsec", BINARY, 0);
+	tics10sec = createSemaphore("tics10sec", COUNTING, 0);
 
 	//?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	
 
@@ -247,12 +250,12 @@ int deQ(PQ* pq, TID tid)
 
 void printQ(PQ* pq)
 {
-	printf("Queue total size: %d\n", pq->size);
+	//printf("Queue total size: %d\n", pq->size);
 	for (int i = 0; i < pq->size; ++i)
 	{
 		printf("Queue[%d]: \n\ttid: %d\n\tpriority: %d\n", i, pq->q[i].tid, pq->q[i].priority);
 	}
-	printf("\n\n");
+	printf("\n");
 	fflush(stdout);
 }
 
@@ -452,6 +455,7 @@ static int initOS()
 	// capture current time
 	lastPollClock = clock();			// last pollClock
 	time(&oldTime1);
+	time(&oldTime2);
 
 	// init system tcb's
 	for (i=0; i<MAX_TASKS; i++)

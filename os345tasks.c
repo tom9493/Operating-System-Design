@@ -35,6 +35,7 @@ extern int curTask;							// current task #
 extern int superMode;						// system mode
 extern Semaphore* semaphoreList;			// linked list of active semaphores
 extern Semaphore* taskSems[MAX_TASKS];		// task semaphore
+extern TCB tcb[MAX_TASKS];
 
 extern PQ* rq;
 
@@ -150,7 +151,15 @@ static void exitTask(int taskId)
 	
 	// ?? add code here
 
-	deQ(taskSems[taskId]->pq, taskId);
+	if (tcb[taskId].state == S_BLOCKED)
+	{
+		deQ(tcb[taskId].event->pq, taskId);
+		if (tcb[taskId].event->type == COUNTING)
+		{
+			tcb[taskId].event->state++;
+		}
+		enQ(rq, taskId, HIGH_PRIORITY);
+	}
 
 	tcb[taskId].state = S_EXIT;			// EXIT task state
 	return;
@@ -190,6 +199,14 @@ int sysKillTask(int taskId)
 
 	// ?? delete task from system queues
 	deQ(rq, taskId);
+	for (Semaphore* sem = semaphoreList; sem != NULL; sem = sem->semLink)
+	{
+		if (sem->taskNum == taskId)
+		{
+			deQ(sem->pq, taskId);
+			sem = NULL;
+		}
+	}
 	for (int i = 0; i < tcb[taskId].argc; i++) free(tcb[taskId].argv[i]);
 	free(tcb[taskId].argv);
 
