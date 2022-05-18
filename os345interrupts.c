@@ -47,6 +47,8 @@ extern Semaphore* tics1sec;				// 1 second semaphore
 extern Semaphore* tics10thsec;			// 1/10 second semaphore
 extern Semaphore* tics10sec;			// 10 second semaphore
 
+extern Semaphore* dcChange;
+
 extern char inChar;				// last entered character
 extern int charFlag;				// 0 => buffered input
 extern int inBufIndx;				// input pointer into input buffer
@@ -66,6 +68,8 @@ char** c;
 int cSize;
 int cIndex;
 int check;
+
+extern DC* dc;
 
 // **********************************************************************
 // **********************************************************************
@@ -258,8 +262,15 @@ static void timer_isr()
 	myClkTime = clock();
 	if ((myClkTime - myOldClkTime) >= ONE_TENTH_SEC)
 	{
-		myOldClkTime = myOldClkTime + ONE_TENTH_SEC;   // update old
+		myOldClkTime = myOldClkTime + ONE_TENTH_SEC;									// update old
 		semSignal(tics10thsec);
+		semSignal(dcChange);
+		if (dc->list[dc->size - 1].time > 0) { dc->list[dc->size - 1].time--; }			// Decrement time
+		if (dc->list[dc->size - 1].time == 0)											// If time is 0, semSignal that semaphore and remove it from dc
+		{
+			semSignal(dc->list[dc->size - 1].sem);
+			outDC();
+		}
 	}
 
 	// ?? add other timer sampling/signaling code here for project 2

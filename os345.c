@@ -58,6 +58,8 @@ Semaphore* tics1sec;				// 1 second semaphore
 Semaphore* tics10thsec;				// 1/10 second semaphore
 Semaphore* tics10sec;				// 10 second semaphore
 
+Semaphore* dcChange;				// Checks if deltaclock has changed
+
 // **********************************************************************
 // **********************************************************************
 // global system variables
@@ -86,7 +88,9 @@ time_t oldTime1;					// old 1sec time
 time_t oldTime2;
 clock_t myClkTime;
 clock_t myOldClkTime;
+
 PQ* rq;								// ready priority queue
+DC* dc;								// Delta Clock
 
 
 // **********************************************************************
@@ -141,6 +145,7 @@ int main(int argc, char* argv[])
 	tics1sec = createSemaphore("tics1sec", BINARY, 0);
 	tics10thsec = createSemaphore("tics10thsec", BINARY, 0);
 	tics10sec = createSemaphore("tics10sec", COUNTING, 0);
+	dcChange = createSemaphore("dcChange", BINARY, 0);
 
 	//?? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	
 
@@ -179,8 +184,6 @@ int main(int argc, char* argv[])
 
 int enQ(PQ* pq, TID tid, int priority)
 {
-	//printf("Printing queue before enQ. tid: %d\n", tid);
-	//printQ(pq);
 	if (pq->size == 0)
 	{
 		pq->q[0].priority = priority;
@@ -204,17 +207,11 @@ int enQ(PQ* pq, TID tid, int priority)
 		}
 	}
 	pq->size++;
-	//printf("\nPrinting queue after enQ\n");
-	//printQ(pq);
 	return tid;
 }
 
 int deQ(PQ* pq, TID tid)
 {
-	//printf("size before deQ: %d\n", pq->size);
-	//fflush(stdout);
-	//printf("Printing queue before deQ\n");
-	//printQ(pq);
 	if (tid >= 0)
 	{
 		for (int i = 0; i < pq->size; ++i)
@@ -228,8 +225,6 @@ int deQ(PQ* pq, TID tid)
 					pq->q[i] = pq->q[i + 1];
 					++i;
 				}
-				//printf("Printing queue after deQ\n");
-				//printQ(pq);
 				return tid;						// break and stop for loop
 			}
 		}
@@ -240,12 +235,44 @@ int deQ(PQ* pq, TID tid)
 		if (pq->size == 0) { return -1; }		
 		int taskId = pq->q[pq->size - 1].tid;
 		pq->size -= 1;
-		//printf("Printing queue after deQ\n");
-		//printQ(pq);
-		//printf("taskId returned: %d\n", taskId);
-		//fflush(stdout);
 		return taskId;
 	}
+}
+
+Semaphore* inDC(int time, Semaphore* sem)
+{
+	if (dc->size == 0)								
+	{												SWAP;
+		dc->list[0].time = time;					SWAP;
+		dc->list[0].sem = sem;						SWAP;
+	}
+	else {
+		for (int i = dc->size - 1; i >= 0; --i)
+		{											SWAP;
+			dc->list[i + 1] = dc->list[i];			SWAP;
+			if (dc->list[i].time > time)					// If time relative to time past is less than i
+			{										SWAP;
+				dc->list[i + 1].time = time;		SWAP;
+				dc->list[i + 1].sem = sem;			SWAP;
+				dc->list[i].time -= time;			SWAP;
+				break;
+			}
+			time -= dc->list[i].time;				SWAP;	// Decrement time relative to other semaphores
+			if (i == 0)										// Lowest in list
+			{										SWAP;
+				dc->list[i].time = time;			SWAP;
+				dc->list[i].sem = sem;				SWAP;
+			}
+		}
+	}
+	dc->size++;										SWAP;
+	return sem;										SWAP;
+}
+
+Semaphore* outDC()
+{
+	dc->size--;
+	return dc->list[dc->size].sem;
 }
 
 void printQ(PQ* pq)
@@ -451,6 +478,11 @@ static int initOS()
 	rq = (PQ*)malloc(sizeof(PQ));
 	if (rq == NULL) return 99;
 	rq->size = 0;
+
+	// malloc delta clock
+	dc = (DC*)malloc(sizeof(DC));
+	if (dc == NULL) return 98;
+	dc->size = 0;
 
 	// capture current time
 	lastPollClock = clock();			// last pollClock

@@ -104,8 +104,8 @@ temp:	// ?? temporary label
 //
 int semWait(Semaphore* s)
 {
-	assert("semWait Error" && s);												// assert semaphore
-	assert("semWait Error" && ((s->type == 0) || (s->type == 1)));	// assert legal type
+	assert("semWait Error" && s);										// assert semaphore
+	assert("semWait Error" && ((s->type == 0) || (s->type == 1)));		// assert legal type
 	assert("semWait Error" && !superMode);								// assert user mode
 
 	// check semaphore type
@@ -115,7 +115,7 @@ int semWait(Semaphore* s)
 		// if state is zero, then block task
 
 temp:	// ?? temporary label
-		if (s->state == 0)
+		if (s->state == 0)				// If semaphore is not blocked (zero for binary, any number >= 0 for counting), block it
 		{
 			tcb[curTask].event = s;		// block task
 			tcb[curTask].state = S_BLOCKED;

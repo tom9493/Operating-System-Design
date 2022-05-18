@@ -91,7 +91,7 @@ typedef struct semaphore				// semaphore
 {
 	struct semaphore* semLink;			// semaphore link
 	char* name;							// semaphore name
-	int state;							// semaphore state
+	int state;							// semaphore state -> Its a counter. A state less than zero blocks task associated with semaphore
 	int type;							// semaphore type
 	int taskNum;						// semaphore creator task #
 	PQ* pq;								// semaphore priority queue (Should this be a pointer or no? Hard to malloc without pointer type) 
@@ -119,6 +119,20 @@ typedef struct							// task control block
 	void* stack;						// task stack
 	jmp_buf context;					// task context pointer
 } TCB;
+
+typedef struct
+{
+	int size;
+	struct
+	{
+		int time;
+		Semaphore* sem;
+	} list[MAX_TASKS];
+} DC;
+
+Semaphore* inDC(int, Semaphore*);
+Semaphore* outDC();
+void printDC(DC*);
 
 // Task specific variables
 #define CDIR		tcb[curTask].cdir
@@ -173,7 +187,7 @@ int semTryLock(Semaphore*);
 // ***********************************************************************
 // Command prototypes
 
-#define NUM_COMMANDS 52
+#define NUM_COMMANDS 53
 typedef struct								// command struct
 {
 	char* command;
@@ -201,6 +215,7 @@ int P2_tenSeconds(int, char**);
 
 int P3_main(int, char**);
 int P3_dc(int, char**);
+int P3_tdc(int, char**);
 
 int P4_main(int, char**);
 int P4_dumpFrame(int, char**);

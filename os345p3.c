@@ -34,7 +34,13 @@ extern Semaphore* parkMutex;						// protect park access
 extern Semaphore* fillSeat[NUM_CARS];			// (signal) seat ready to fill
 extern Semaphore* seatFilled[NUM_CARS];		// (wait) passenger seated
 extern Semaphore* rideOver[NUM_CARS];			// (signal) ride over
+extern DC* dc;
+extern TCB tcb[MAX_TASKS];
+extern Semaphore* dcChange;
 
+Semaphore* event[10];
+
+int timeTaskID;
 
 // ***********************************************************************
 // project 3 functions and tasks
@@ -73,19 +79,6 @@ int P3_main(int argc, char* argv[])
 
 // ***********************************************************************
 // ***********************************************************************
-// delta clock command
-int P3_dc(int argc, char* argv[])
-{
-	printf("\nDelta Clock");
-	// ?? Implement a routine to display the current delta clock contents
-	printf("\nTo Be Implemented!");
-	return 0;
-} // end CL3_dc
-
-
-/*
-// ***********************************************************************
-// ***********************************************************************
 // ***********************************************************************
 // ***********************************************************************
 // ***********************************************************************
@@ -97,9 +90,9 @@ int P3_dc(int argc, char* argv[])
 	// ?? Implement a routine to display the current delta clock contents
 	//printf("\nTo Be Implemented!");
 	int i;
-	for (i=0; i<numDeltaClock; i++)
+	for (i=0; i<dc->size-1; i++)
 	{
-		printf("\n%4d%4d  %-20s", i, deltaClock[i].time, deltaClock[i].sem->name);
+		printf("\n%4d%4d  %-20s", i, dc->list[i].time, dc->list[i].sem->name);
 	}
 	return 0;
 } // end CL3_dc
@@ -110,9 +103,9 @@ int P3_dc(int argc, char* argv[])
 void printDeltaClock(void)
 {
 	int i;
-	for (i=0; i<numDeltaClock; i++)
+	for (i=0; i<dc->size; i++)
 	{
-		printf("\n%4d%4d  %-20s", i, deltaClock[i].time, deltaClock[i].sem->name);
+		printf("\n%4d%4d  %-20s", i, dc->list[i].time, dc->list[i].sem->name);
 	}
 	return;
 }
@@ -120,23 +113,6 @@ void printDeltaClock(void)
 
 // ***********************************************************************
 // test delta clock
-int P3_tdc(int argc, char* argv[])
-{
-	createTask( "DC Test",			// task name
-		dcMonitorTask,		// task
-		10,					// task priority
-		argc,					// task arguments
-		argv);
-
-	timeTaskID = createTask( "Time",		// task name
-		timeTask,	// task
-		10,			// task priority
-		argc,			// task arguments
-		argv);
-	return 0;
-} // end P3_tdc
-
-
 
 // ***********************************************************************
 // monitor the delta clock task
@@ -152,16 +128,17 @@ int dcMonitorTask(int argc, char* argv[])
 	{
 		sprintf(buf, "event[%d]", i);
 		event[i] = createSemaphore(buf, BINARY, 0);
-		insertDeltaClock(ttime[i], event[i]);
+		inDC(ttime[i], event[i]);
 	}
 	printDeltaClock();
 
-	while (numDeltaClock > 0)
+	while (dc->size > 0)
 	{
 		SEM_WAIT(dcChange)
 		flg = 0;
 		for (i=0; i<10; i++)
 		{
+			//printf("event[%d]->state: %d\n", i, event[i]->state);
 			if (event[i]->state ==1)			{
 					printf("\n  event[%d] signaled", i);
 					event[i]->state = 0;
@@ -170,10 +147,11 @@ int dcMonitorTask(int argc, char* argv[])
 		}
 		if (flg) printDeltaClock();
 	}
-	printf("\nNo more events in Delta Clock");
+	printf("\nNo more events in Delta Clock\n");
 
 	// kill dcMonitorTask
-	tcb[timeTaskID].state = S_EXIT;
+	printf("Timer task name: %s\n", tcb[timeTaskID].name);
+	killTask(timeTaskID);
 	return 0;
 } // end dcMonitorTask
 
@@ -187,10 +165,27 @@ int timeTask(int argc, char* argv[])
 	char svtime[64];						// ascii current time
 	while (1)
 	{
+		SWAP;
 		SEM_WAIT(tics1sec)
 		printf("\nTime = %s", myTime(svtime));
 	}
 	return 0;
 } // end timeTask
-*/
+
+int P3_tdc(int argc, char* argv[])
+{
+	createTask("DC Test",			// task name
+		dcMonitorTask,		// task
+		10,					// task priority
+		argc,					// task arguments
+		argv);
+
+	timeTaskID = createTask("Time",		// task name
+		timeTask,	// task
+		10,			// task priority
+		argc,			// task arguments
+		argv);
+	return 0;
+} // end P3_tdc
+
 
