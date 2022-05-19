@@ -25,6 +25,10 @@
 #include "os345.h"
 #include "os345park.h"
 
+int carTask(int, char**);
+int driverTask(int, char**);
+int visitorTask(int, char**);
+
 // ***********************************************************************
 // project 3 variables
 
@@ -38,8 +42,29 @@ extern DC* dc;
 extern TCB tcb[MAX_TASKS];
 extern Semaphore* dcChange;
 
-Semaphore* event[10];
+int carID;
+int visitorID;
 
+/* Resource management semaphores */
+Semaphore* parkCap;
+Semaphore* tickets;
+Semaphore* mCap;
+Semaphore* gsCap;
+
+/* Mutex semaphores */
+Semaphore* requestTicketMutex;
+Semaphore* needDriver;
+
+/* Semaphores (for coordination) */
+Semaphore* needTicket;
+Semaphore* waitTicket;
+Semaphore* wakeupDriver;
+Semaphore* needVisitor;
+Semaphore* visitorReady;
+
+
+/* For testing delta clock */
+Semaphore* event[10];
 int timeTaskID;
 
 // ***********************************************************************
@@ -71,32 +96,107 @@ int P3_main(int argc, char* argv[])
 	printf("\nStart Jurassic Park...");
 
 	//?? create car, driver, and visitor tasks here
+	myPark.numInCarLine = myPark.numInPark = 13;			// TEMPORARY -- TESTING CAR TASK
+
+	/* Resource management semaphores */
+	parkCap = createSemaphore("park capacity", COUNTING, MAX_IN_PARK);				
+	tickets = createSemaphore("tickets", COUNTING, MAX_TICKETS);						
+	mCap = createSemaphore("mueseum capacity", COUNTING, MAX_IN_MUSEUM);			
+	gsCap = createSemaphore("gift shop capacity", COUNTING, MAX_IN_GIFTSHOP);	
+
+	/* Mutex semaphores */
+	requestTicketMutex = createSemaphore("request ticket mutex", BINARY, 1);
+	needDriver = createSemaphore("need driver", BINARY, 1);	// Should the starting state value be 1 for mutex?
+
+	/* Semaphores (for coordination) */
+	needTicket = createSemaphore("need ticket", BINARY, 0);
+	waitTicket = createSemaphore("wait ticket", BINARY, 0);
+	wakeupDriver = createSemaphore("wakeup driver", BINARY, 0);
+	needVisitor = createSemaphore("need visitor", BINARY, 0);
+	visitorReady = createSemaphore("visitor ready", BINARY, 0);
+
+	for (int i = 0; i < NUM_CARS; ++i)
+	{
+		createTask( buf,
+			carTask,
+			HIGH_PRIORITY,
+			0,
+			NULL);				SWAP;
+		
+		createTask(buf,
+			driverTask,
+			HIGH_PRIORITY,
+			0,
+			NULL);				SWAP;
+		carID++;				SWAP;
+	}
+
+	for (int i = 0; i < NUM_VISITORS; ++i)
+	{
+		createTask(buf,
+			visitorTask,
+			HIGH_PRIORITY,
+			0,
+			NULL);				SWAP;
+		visitorID++;			SWAP;
+	}
 
 	return 0;
 } // end project3
 
 
-
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// ***********************************************************************
-// delta clock command
-int P3_dc(int argc, char* argv[])
+int carTask(int argc, char* argv[])
 {
-	printf("\nDelta Clock");
-	// ?? Implement a routine to display the current delta clock contents
-	//printf("\nTo Be Implemented!");
-	int i;
-	for (i=0; i<dc->size-1; i++)
+	int id = carID;							SWAP;
+	while (1)
 	{
-		printf("\n%4d%4d  %-20s", i, dc->list[i].time, dc->list[i].sem->name);
+		for (int i = 0; i < 3; ++i)
+		{
+			SEM_WAIT(fillSeat[id])			SWAP;
+			/* Other stuff happens */
+			SEM_SIGNAL(seatFilled[id])		SWAP;
+			myPark.numInCarLine--;			SWAP;
+			myPark.numInCars++;				SWAP;
+		}
+		SEM_WAIT(rideOver[id])				SWAP;
 	}
 	return 0;
-} // end CL3_dc
+}
 
+int driverTask(int argc, char* argv[])
+{
+	int id = carID;
+	while (1) {
+
+	}
+}
+
+int visitorTask(int argc, char* argv[])
+{
+	int id = visitorID;						SWAP;
+	SEM_WAIT(parkCap);						SWAP;
+	SEM_WAIT(parkMutex);					SWAP;
+	myPark.numOutsidePark--;				SWAP;
+	myPark.numInPark++;						SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
+	SEM_WAIT(requestTicketMutex);			SWAP;	
+	SEM_SIGNAL(needTicket);					SWAP;
+	SEM_SIGNAL(wakeupDriver);				SWAP;
+	SEM_WAIT(tickets);						SWAP;	// Consumes a ticket
+	SEM_SIGNAL(requestTicketMutex);			SWAP;
+	// Visit museum
+	// Get in car line
+	// Wait for a seat
+	SEM_WAIT(needVisitor);					SWAP;
+	SEM_SIGNAL(visitorReady);				SWAP;
+	// PICK UP HERE
+	
+
+}
+
+
+
+// functions below test delta clock
 
 // ***********************************************************************
 // display all pending events in the delta clock list
@@ -109,10 +209,6 @@ void printDeltaClock(void)
 	}
 	return;
 }
-
-
-// ***********************************************************************
-// test delta clock
 
 // ***********************************************************************
 // monitor the delta clock task
