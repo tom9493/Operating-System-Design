@@ -43,7 +43,14 @@ extern TCB tcb[MAX_TASKS];
 extern Semaphore* dcChange;
 
 int carID;
+int driverID;
 int visitorID;
+int currentDriverID;
+int currentVisID;
+char letters[4] = { 'A', 'B', 'C', 'D' };
+
+Semaphore* rideDone[NUM_VISITORS];
+Semaphore* driverDone[NUM_DRIVERS];
 
 /* Resource management semaphores */
 Semaphore* parkCap;
@@ -53,14 +60,23 @@ Semaphore* gsCap;
 
 /* Mutex semaphores */
 Semaphore* requestTicketMutex;
+Semaphore* storeVisIDMutex;
+Semaphore* storeDvrIDMutex;
 Semaphore* needDriver;
+Semaphore* dcMutex;
 
 /* Semaphores (for coordination) */
 Semaphore* needTicket;
-Semaphore* waitTicket;
+Semaphore* takeTicket;
 Semaphore* wakeupDriver;
+Semaphore* driverReady;
 Semaphore* needVisitor;
 Semaphore* visitorReady;
+Semaphore* readyForVisitorID;
+Semaphore* visitorIDStored;
+Semaphore* readyForDriverID;
+Semaphore* driverIDStored;
+Semaphore* inGiftLine;
 
 
 /* For testing delta clock */
@@ -96,7 +112,11 @@ int P3_main(int argc, char* argv[])
 	printf("\nStart Jurassic Park...");
 
 	//?? create car, driver, and visitor tasks here
-	myPark.numInCarLine = myPark.numInPark = 13;			// TEMPORARY -- TESTING CAR TASK
+	//myPark.numInCarLine = myPark.numInPark = 20;			// TEMPORARY -- TESTING CAR TASK
+	SEM_WAIT(parkMutex);						SWAP;
+	myPark.numOutsidePark = NUM_VISITORS;		SWAP;
+	myPark.numInPark = 0;						SWAP;
+	SEM_SIGNAL(parkMutex);						SWAP;
 
 	/* Resource management semaphores */
 	parkCap = createSemaphore("park capacity", COUNTING, MAX_IN_PARK);				
@@ -106,33 +126,46 @@ int P3_main(int argc, char* argv[])
 
 	/* Mutex semaphores */
 	requestTicketMutex = createSemaphore("request ticket mutex", BINARY, 1);
-	needDriver = createSemaphore("need driver", BINARY, 1);	// Should the starting state value be 1 for mutex?
+	storeVisIDMutex = createSemaphore("store visitor id mutex", BINARY, 1);
+	storeDvrIDMutex = createSemaphore("store driver id mutex", BINARY, 1);
+	needDriver = createSemaphore("need driver", BINARY, 1);
+	dcMutex = createSemaphore("delta clock mutex semaphore", BINARY, 1);
 
 	/* Semaphores (for coordination) */
 	needTicket = createSemaphore("need ticket", BINARY, 0);
-	waitTicket = createSemaphore("wait ticket", BINARY, 0);
+	takeTicket = createSemaphore("take ticket", BINARY, 0);
 	wakeupDriver = createSemaphore("wakeup driver", BINARY, 0);
+	driverReady = createSemaphore("driver ready", BINARY, 0);
 	needVisitor = createSemaphore("need visitor", BINARY, 0);
 	visitorReady = createSemaphore("visitor ready", BINARY, 0);
+	readyForVisitorID = createSemaphore("ready to store visitor ID", BINARY, 0);
+	visitorIDStored = createSemaphore("visitor ID stored in car task", BINARY, 0);
+	readyForDriverID = createSemaphore("ready to store driver ID", BINARY, 0);
+	driverIDStored = createSemaphore("driver ID stored in car task", BINARY, 0);
+	inGiftLine = createSemaphore("in gift line", BINARY, 0);
 
 	for (int i = 0; i < NUM_CARS; ++i)
 	{
+		sprintf(buf, "carTask%d", carID);		SWAP;
 		createTask( buf,
 			carTask,
 			HIGH_PRIORITY,
 			0,
 			NULL);				SWAP;
-		
+		carID++;				SWAP;
+
+		sprintf(buf, "driverTask%d", driverID);	SWAP;
 		createTask(buf,
 			driverTask,
 			HIGH_PRIORITY,
 			0,
 			NULL);				SWAP;
-		carID++;				SWAP;
+		driverID++;				SWAP;
 	}
 
 	for (int i = 0; i < NUM_VISITORS; ++i)
 	{
+		sprintf(buf, "visitorTask%d", visitorID); SWAP;
 		createTask(buf,
 			visitorTask,
 			HIGH_PRIORITY,
@@ -147,50 +180,208 @@ int P3_main(int argc, char* argv[])
 
 int carTask(int argc, char* argv[])
 {
-	int id = carID;							SWAP;
+	int thisID = carID;						SWAP;
+	int visitorIDs[3];						SWAP;
+	int thisDriverID;						SWAP;
 	while (1)
 	{
 		for (int i = 0; i < 3; ++i)
 		{
-			SEM_WAIT(fillSeat[id])			SWAP;
-			/* Other stuff happens */
-			SEM_SIGNAL(seatFilled[id])		SWAP;
-			myPark.numInCarLine--;			SWAP;
-			myPark.numInCars++;				SWAP;
+			SEM_WAIT(fillSeat[thisID])		SWAP;
+			SEM_SIGNAL(needVisitor);		SWAP;
+			SEM_WAIT(visitorReady);			SWAP;
+			SEM_WAIT(readyForVisitorID);	SWAP;
+			visitorIDs[i] = currentVisID;	SWAP;
+			SEM_SIGNAL(visitorIDStored);	SWAP;
+			
+			if (i == 2)
+			{
+				SEM_SIGNAL(wakeupDriver);
+				SEM_WAIT(driverReady);
+				SEM_WAIT(readyForDriverID);			SWAP;
+				thisDriverID = currentDriverID;		SWAP;
+				SEM_WAIT(parkMutex);				SWAP;
+				myPark.drivers[thisDriverID] = thisID + 1;SWAP;
+				SEM_SIGNAL(parkMutex);				SWAP;
+				SEM_SIGNAL(driverIDStored);			SWAP;
+			}
+
+			SEM_SIGNAL(seatFilled[thisID]);	SWAP;
+		}		
+
+		SEM_WAIT(rideOver[thisID]);			SWAP;	// Wait until this car's tour is over, then signal visitors and driver
+		SEM_SIGNAL(driverDone[thisDriverID]);	SWAP;
+
+		for (int i = 0; i < 3; ++i)
+		{
+			SEM_SIGNAL(rideDone[visitorIDs[i]]);	SWAP;
+			//SEM_WAIT(inGiftLine);
 		}
-		SEM_WAIT(rideOver[id])				SWAP;
 	}
 	return 0;
 }
 
 int driverTask(int argc, char* argv[])
 {
-	int id = carID;
-	while (1) {
+	char buf[32];									SWAP;
+	int thisID = driverID;							SWAP;
+	sprintf(buf, "driver done %d", thisID);			SWAP;
+	driverDone[thisID] = createSemaphore(buf, BINARY, 0);		SWAP;
 
+	while (1) {
+		SEM_WAIT(parkMutex);						SWAP;
+		myPark.drivers[thisID] = 0;					SWAP;
+		SEM_SIGNAL(parkMutex);						SWAP;
+		SEM_WAIT(wakeupDriver);						SWAP;
+		if (semTryLock(needTicket))
+		{											SWAP;
+			SEM_WAIT(parkMutex);					SWAP;
+			myPark.drivers[thisID] = -1;			SWAP;
+			SEM_SIGNAL(parkMutex);					SWAP;
+			SEM_SIGNAL(takeTicket)					SWAP;
+		}
+		else 
+		{
+			SEM_SIGNAL(driverReady);				SWAP;	// Indicates driver is ready for car tour
+			SEM_WAIT(storeDvrIDMutex);				SWAP;	// Only one driver stores id at a time in car task
+			currentDriverID = thisID;				SWAP;
+			SEM_SIGNAL(readyForDriverID);			SWAP;
+			SEM_WAIT(driverIDStored);				SWAP;
+			SEM_SIGNAL(storeDvrIDMutex);			SWAP;
+
+			SEM_WAIT(driverDone[thisID]);			SWAP;
+		}
 	}
 }
 
 int visitorTask(int argc, char* argv[])
 {
-	int id = visitorID;						SWAP;
-	SEM_WAIT(parkCap);						SWAP;
-	SEM_WAIT(parkMutex);					SWAP;
-	myPark.numOutsidePark--;				SWAP;
-	myPark.numInPark++;						SWAP;
-	SEM_SIGNAL(parkMutex);					SWAP;
-	SEM_WAIT(requestTicketMutex);			SWAP;	
-	SEM_SIGNAL(needTicket);					SWAP;
-	SEM_SIGNAL(wakeupDriver);				SWAP;
-	SEM_WAIT(tickets);						SWAP;	// Consumes a ticket
-	SEM_SIGNAL(requestTicketMutex);			SWAP;
-	// Visit museum
-	// Get in car line
-	// Wait for a seat
-	SEM_WAIT(needVisitor);					SWAP;
-	SEM_SIGNAL(visitorReady);				SWAP;
-	// PICK UP HERE
+	char buf[32];											SWAP;
+	int id = visitorID;										SWAP;	// Unique visitor ID
+	sprintf(buf, "line wait %d", id);						SWAP;
+	Semaphore* timeSem = createSemaphore(buf, BINARY, 0);	SWAP;
+	sprintf(buf, "ride done %d", id);						SWAP;
+	rideDone[id] = createSemaphore(buf, BINARY, 0);			SWAP;
+
+	// Arrival
+	SEM_WAIT(dcMutex);						SWAP;	// Only one tasks update dcMutex at a time
+	inDC(rand() % 100 + 1, timeSem);		SWAP;	// Inserts timing semaphore in dc, random time within 10 seconds (arrival delay)
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;	// Enters park after rand time expires and sem signal in delta clock
 	
+	// Waits outside, gets into park and into ticket line
+	SEM_WAIT(parkCap);						SWAP;	// Consumes visitor capacity and blocks if there are too many people there
+	SEM_WAIT(parkMutex);					SWAP;	// Only one tasks updates variables at a time (shared memory)
+	myPark.numOutsidePark--;				SWAP;	// Update variables
+	myPark.numInPark++;						SWAP;
+	myPark.numInTicketLine++;				SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;	// Another visitor can enter park and update variables now
+
+	// Waits in ticket line
+	SEM_WAIT(dcMutex);						SWAP;
+	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in ticket line
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;
+
+	// Gets ticekt from driver
+	SEM_WAIT(tickets);						SWAP;	// Requests ticket if more are available
+	SEM_WAIT(requestTicketMutex);			SWAP;	// Only one visitor can get a ticket at a time	
+	SEM_SIGNAL(needTicket);					SWAP;	// Signals driver that we need a ticket when he wakes up
+	SEM_SIGNAL(wakeupDriver);				SWAP;	// Wakes driver up
+	SEM_WAIT(takeTicket)					SWAP;	// Can consume a ticket on driver's signal
+	SEM_SIGNAL(requestTicketMutex);			SWAP;	// Someone else can get a ticket now
+
+	// Gets in museum line
+	SEM_WAIT(parkMutex);					SWAP;
+	myPark.numTicketsAvailable--;			SWAP;	// Update variables on UI
+	myPark.numInTicketLine--;				SWAP;
+	myPark.numInMuseumLine++;				SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
+
+	// Waits in museum line
+	SEM_WAIT(dcMutex);						SWAP;
+	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in museum line 
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;
+
+	// Gets into museum
+	SEM_WAIT(mCap);							SWAP;	// Consumes museum capacity unit
+	SEM_WAIT(parkMutex);					SWAP;	// Update variables
+	myPark.numInMuseumLine--;				SWAP;	
+	myPark.numInMuseum++;					SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
+
+	// Waits in museum
+	SEM_WAIT(dcMutex);						SWAP;
+	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in museum
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;	
+	SEM_SIGNAL(mCap);						SWAP;	// Releases museum capacity unit
+
+	// Leaves museum and gets into car line
+	SEM_WAIT(parkMutex);					SWAP;
+	myPark.numInMuseum--;					SWAP;	
+	myPark.numInCarLine++;					SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
+
+	// Waits in car line
+	SEM_WAIT(dcMutex);						SWAP;
+	inDC(rand() % 30, timeSem);				SWAP;	// Wait in car line
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;
+
+	// Store visitor ID in car task
+	SEM_WAIT(needVisitor);					SWAP;	// Waits till car needs visitor
+	SEM_SIGNAL(visitorReady);				SWAP;	// Indicates visitor is ready
+	SEM_WAIT(storeVisIDMutex);				SWAP;
+	currentVisID = id;						SWAP;
+	SEM_SIGNAL(readyForVisitorID);			SWAP;
+	SEM_WAIT(visitorIDStored);				SWAP;
+	SEM_SIGNAL(storeVisIDMutex);			SWAP;
+
+	// Goes on tour
+	SEM_WAIT(parkMutex);					SWAP;
+	SEM_SIGNAL(tickets);					SWAP;	// Gives ticket back
+	myPark.numTicketsAvailable++;			SWAP;
+	myPark.numInCarLine--;					SWAP;
+	myPark.numInCars++;						SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
+	SEM_WAIT(rideDone[id]);					SWAP;	// Waits until tour is over
+	
+	// Tour over, get in giftshop line
+	SEM_WAIT(parkMutex);					SWAP;
+	myPark.numInCars--;						SWAP;
+	myPark.numInGiftLine++;					SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
+	//SEM_SIGNAL(inGiftLine);					SWAP;
+
+	// Waits in giftshop line
+	SEM_WAIT(dcMutex);						SWAP;
+	inDC(rand() % 30, timeSem);				SWAP;	// Wait in gift shop line
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;
+	
+	// Goes into giftshop
+	SEM_WAIT(gsCap);						SWAP;	// Only goes in if the capacity is not reached
+	SEM_WAIT(parkMutex);					SWAP;
+	myPark.numInGiftLine--;					SWAP;
+	myPark.numInGiftShop++;					SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
+
+	// Waits in giftshop
+	SEM_WAIT(dcMutex);						SWAP;
+	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in gift shop 
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;
+	SEM_SIGNAL(gsCap);						SWAP;	// Releases gsCap resource
+
+	// Exits the giftshop and leaves park
+	SEM_WAIT(parkMutex);					SWAP;
+	myPark.numInGiftShop--;					SWAP;
+	SEM_SIGNAL(parkCap);					SWAP;	// Releases resource, another visitor can enter
+	myPark.numInPark--;						SWAP;
+	myPark.numExitedPark++;					SWAP;
+	SEM_SIGNAL(parkMutex);					SWAP;
 
 }
 
