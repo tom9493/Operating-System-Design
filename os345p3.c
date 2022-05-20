@@ -64,12 +64,14 @@ Semaphore* storeVisIDMutex;
 Semaphore* storeDvrIDMutex;
 Semaphore* needDriver;
 Semaphore* dcMutex;
+Semaphore* carReleaseMutex;
 
 /* Semaphores (for coordination) */
 Semaphore* needTicket;
 Semaphore* takeTicket;
 Semaphore* wakeupDriver;
 Semaphore* driverReady;
+Semaphore* carReady;
 Semaphore* needVisitor;
 Semaphore* visitorReady;
 Semaphore* readyForVisitorID;
@@ -119,30 +121,32 @@ int P3_main(int argc, char* argv[])
 	SEM_SIGNAL(parkMutex);						SWAP;
 
 	/* Resource management semaphores */
-	parkCap = createSemaphore("park capacity", COUNTING, MAX_IN_PARK);				
-	tickets = createSemaphore("tickets", COUNTING, MAX_TICKETS);						
-	mCap = createSemaphore("mueseum capacity", COUNTING, MAX_IN_MUSEUM);			
-	gsCap = createSemaphore("gift shop capacity", COUNTING, MAX_IN_GIFTSHOP);	
+	parkCap = createSemaphore("park capacity", COUNTING, MAX_IN_PARK);					SWAP;
+	tickets = createSemaphore("tickets", COUNTING, MAX_TICKETS);						SWAP;
+	mCap = createSemaphore("mueseum capacity", COUNTING, MAX_IN_MUSEUM);				SWAP;
+	gsCap = createSemaphore("gift shop capacity", COUNTING, MAX_IN_GIFTSHOP);			SWAP;
 
 	/* Mutex semaphores */
-	requestTicketMutex = createSemaphore("request ticket mutex", BINARY, 1);
-	storeVisIDMutex = createSemaphore("store visitor id mutex", BINARY, 1);
-	storeDvrIDMutex = createSemaphore("store driver id mutex", BINARY, 1);
-	needDriver = createSemaphore("need driver", BINARY, 1);
-	dcMutex = createSemaphore("delta clock mutex semaphore", BINARY, 1);
+	requestTicketMutex = createSemaphore("request ticket mutex", BINARY, 1);			SWAP;
+	storeVisIDMutex = createSemaphore("store visitor id mutex", BINARY, 1);				SWAP;
+	storeDvrIDMutex = createSemaphore("store driver id mutex", BINARY, 1);				SWAP;
+	needDriver = createSemaphore("need driver", BINARY, 1);								SWAP;
+	dcMutex = createSemaphore("delta clock mutex semaphore", BINARY, 1);				SWAP;
+	carReleaseMutex = createSemaphore("car release mutex", BINARY, 1);					SWAP;
 
 	/* Semaphores (for coordination) */
-	needTicket = createSemaphore("need ticket", BINARY, 0);
-	takeTicket = createSemaphore("take ticket", BINARY, 0);
-	wakeupDriver = createSemaphore("wakeup driver", BINARY, 0);
-	driverReady = createSemaphore("driver ready", BINARY, 0);
-	needVisitor = createSemaphore("need visitor", BINARY, 0);
-	visitorReady = createSemaphore("visitor ready", BINARY, 0);
-	readyForVisitorID = createSemaphore("ready to store visitor ID", BINARY, 0);
-	visitorIDStored = createSemaphore("visitor ID stored in car task", BINARY, 0);
-	readyForDriverID = createSemaphore("ready to store driver ID", BINARY, 0);
-	driverIDStored = createSemaphore("driver ID stored in car task", BINARY, 0);
-	inGiftLine = createSemaphore("in gift line", BINARY, 0);
+	needTicket = createSemaphore("need ticket", BINARY, 0);								SWAP;
+	takeTicket = createSemaphore("take ticket", BINARY, 0);								SWAP;
+	wakeupDriver = createSemaphore("wakeup driver", BINARY, 0);							SWAP;
+	driverReady = createSemaphore("driver ready", BINARY, 0);							SWAP;
+	carReady = createSemaphore("car ready", BINARY, 0);									SWAP;
+	needVisitor = createSemaphore("need visitor", BINARY, 0);							SWAP;
+	visitorReady = createSemaphore("visitor ready", BINARY, 0);							SWAP;
+	readyForVisitorID = createSemaphore("ready to store visitor ID", BINARY, 0);		SWAP;
+	visitorIDStored = createSemaphore("visitor ID stored in car task", BINARY, 0);		SWAP;
+	readyForDriverID = createSemaphore("ready to store driver ID", BINARY, 0);			SWAP;
+	driverIDStored = createSemaphore("driver ID stored in car task", BINARY, 0);		SWAP;
+	inGiftLine = createSemaphore("in gift line", BINARY, 0);							SWAP;
 
 	for (int i = 0; i < NUM_CARS; ++i)
 	{
@@ -185,7 +189,7 @@ int carTask(int argc, char* argv[])
 	int thisDriverID;						SWAP;
 	while (1)
 	{
-		for (int i = 0; i < 3; ++i)
+		for (int i = 0; i < NUM_SEATS; ++i)
 		{
 			SEM_WAIT(fillSeat[thisID])		SWAP;
 			SEM_SIGNAL(needVisitor);		SWAP;
@@ -194,29 +198,36 @@ int carTask(int argc, char* argv[])
 			visitorIDs[i] = currentVisID;	SWAP;
 			SEM_SIGNAL(visitorIDStored);	SWAP;
 			
-			if (i == 2)
+			if (i == NUM_SEATS - 1)
 			{
-				SEM_SIGNAL(wakeupDriver);
-				SEM_WAIT(driverReady);
+				SEM_SIGNAL(wakeupDriver);			SWAP;
 				SEM_WAIT(readyForDriverID);			SWAP;
 				thisDriverID = currentDriverID;		SWAP;
 				SEM_WAIT(parkMutex);				SWAP;
-				myPark.drivers[thisDriverID] = thisID + 1;SWAP;
+				myPark.drivers[thisDriverID] = thisID+1;	SWAP;
 				SEM_SIGNAL(parkMutex);				SWAP;
 				SEM_SIGNAL(driverIDStored);			SWAP;
+				SEM_WAIT(driverReady);				SWAP;
+				SEM_SIGNAL(carReady);				SWAP;
 			}
 
-			SEM_SIGNAL(seatFilled[thisID]);	SWAP;
+			SEM_SIGNAL(seatFilled[thisID]);			SWAP;
 		}		
 
-		SEM_WAIT(rideOver[thisID]);			SWAP;	// Wait until this car's tour is over, then signal visitors and driver
-		SEM_SIGNAL(driverDone[thisDriverID]);	SWAP;
+		SEM_WAIT(rideOver[thisID]);					SWAP;	// Wait until this car's tour is over, then signal visitors and driver
+		/*SEM_WAIT(parkMutex);						SWAP;
+		myPark.numInCars--;							SWAP;
+		myPark.numInGiftLine++;						SWAP;
+		SEM_SIGNAL(parkMutex);						SWAP;*/
+		//SEM_WAIT(carReleaseMutex);
+		SEM_SIGNAL(driverDone[thisDriverID]);		SWAP;
 
 		for (int i = 0; i < 3; ++i)
 		{
 			SEM_SIGNAL(rideDone[visitorIDs[i]]);	SWAP;
-			//SEM_WAIT(inGiftLine);
+			SEM_WAIT(inGiftLine);					SWAP;
 		}
+		//SEM_SIGNAL(carReleaseMutex);
 	}
 	return 0;
 }
@@ -238,17 +249,18 @@ int driverTask(int argc, char* argv[])
 			SEM_WAIT(parkMutex);					SWAP;
 			myPark.drivers[thisID] = -1;			SWAP;
 			SEM_SIGNAL(parkMutex);					SWAP;
+			SEM_WAIT(tickets);						SWAP;
 			SEM_SIGNAL(takeTicket)					SWAP;
 		}
 		else 
 		{
-			SEM_SIGNAL(driverReady);				SWAP;	// Indicates driver is ready for car tour
 			SEM_WAIT(storeDvrIDMutex);				SWAP;	// Only one driver stores id at a time in car task
 			currentDriverID = thisID;				SWAP;
 			SEM_SIGNAL(readyForDriverID);			SWAP;
 			SEM_WAIT(driverIDStored);				SWAP;
 			SEM_SIGNAL(storeDvrIDMutex);			SWAP;
-
+			SEM_SIGNAL(driverReady);				SWAP;	// Indicates driver is ready for car tour
+			SEM_WAIT(carReady);						SWAP;
 			SEM_WAIT(driverDone[thisID]);			SWAP;
 		}
 	}
@@ -284,7 +296,7 @@ int visitorTask(int argc, char* argv[])
 	SEM_WAIT(timeSem);						SWAP;
 
 	// Gets ticekt from driver
-	SEM_WAIT(tickets);						SWAP;	// Requests ticket if more are available
+	//SEM_WAIT(tickets);						SWAP;	// Requests ticket if more are available
 	SEM_WAIT(requestTicketMutex);			SWAP;	// Only one visitor can get a ticket at a time	
 	SEM_SIGNAL(needTicket);					SWAP;	// Signals driver that we need a ticket when he wakes up
 	SEM_SIGNAL(wakeupDriver);				SWAP;	// Wakes driver up
@@ -352,8 +364,9 @@ int visitorTask(int argc, char* argv[])
 	SEM_WAIT(parkMutex);					SWAP;
 	myPark.numInCars--;						SWAP;
 	myPark.numInGiftLine++;					SWAP;
+	SEM_SIGNAL(inGiftLine);					SWAP;
 	SEM_SIGNAL(parkMutex);					SWAP;
-	//SEM_SIGNAL(inGiftLine);					SWAP;
+	
 
 	// Waits in giftshop line
 	SEM_WAIT(dcMutex);						SWAP;
