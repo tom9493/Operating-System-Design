@@ -268,12 +268,14 @@ static void timer_isr()
 		if (dc->list[dc->size - 1].time > 0) { dc->list[dc->size - 1].time--; }			// Decrement time
 		if (dc->list[dc->size - 1].time == 0)											// If time is 0, semSignal that semaphore and remove it from dc
 		{
-			if (dc->size != 0)
-			{
-				//printf("semSignaled by dc list: %s\n", dc->list[dc->size - 1].sem->name);
-				semSignal(dc->list[dc->size - 1].sem);
-				outDC();
-			}
+			/*while (dc->list[dc->size - 1].sem->state != 1 && dc->list[dc->size - 1].sem->state != 0 && dc->size != 0) 
+			{ 
+				printf("Somethings wrong. dc->size = %d, decrementing.\n", dc->size);
+				dc->size--; 
+			}*/
+
+			if (dc->list[dc->size - 1].sem->state == 1 || dc->list[dc->size - 1].sem->state == 0) { semSignal(dc->list[dc->size - 1].sem); }
+			outDC();
 		}
 	}
 

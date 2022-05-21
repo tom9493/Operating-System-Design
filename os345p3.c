@@ -32,6 +32,8 @@ int visitorTask(int, char**);
 // ***********************************************************************
 // project 3 variables
 
+void printDeltaClock(void);
+
 // Jurassic Park
 extern JPARK myPark;
 extern Semaphore* parkMutex;						// protect park access
@@ -115,10 +117,10 @@ int P3_main(int argc, char* argv[])
 
 	//?? create car, driver, and visitor tasks here
 	//myPark.numInCarLine = myPark.numInPark = 20;			// TEMPORARY -- TESTING CAR TASK
-	SEM_WAIT(parkMutex);						SWAP;
+	/*SEM_WAIT(parkMutex);						SWAP;
 	myPark.numOutsidePark = NUM_VISITORS;		SWAP;
 	myPark.numInPark = 0;						SWAP;
-	SEM_SIGNAL(parkMutex);						SWAP;
+	SEM_SIGNAL(parkMutex);						SWAP;*/
 
 	/* Resource management semaphores */
 	parkCap = createSemaphore("park capacity", COUNTING, MAX_IN_PARK);					SWAP;
@@ -215,11 +217,6 @@ int carTask(int argc, char* argv[])
 		}		
 
 		SEM_WAIT(rideOver[thisID]);					SWAP;	// Wait until this car's tour is over, then signal visitors and driver
-		/*SEM_WAIT(parkMutex);						SWAP;
-		myPark.numInCars--;							SWAP;
-		myPark.numInGiftLine++;						SWAP;
-		SEM_SIGNAL(parkMutex);						SWAP;*/
-		//SEM_WAIT(carReleaseMutex);
 		SEM_SIGNAL(driverDone[thisDriverID]);		SWAP;
 
 		for (int i = 0; i < 3; ++i)
@@ -227,7 +224,6 @@ int carTask(int argc, char* argv[])
 			SEM_SIGNAL(rideDone[visitorIDs[i]]);	SWAP;
 			SEM_WAIT(inGiftLine);					SWAP;
 		}
-		//SEM_SIGNAL(carReleaseMutex);
 	}
 	return 0;
 }
@@ -280,7 +276,17 @@ int visitorTask(int argc, char* argv[])
 	inDC(rand() % 100 + 1, timeSem);		SWAP;	// Inserts timing semaphore in dc, random time within 10 seconds (arrival delay)
 	SEM_SIGNAL(dcMutex);					SWAP;
 	SEM_WAIT(timeSem);						SWAP;	// Enters park after rand time expires and sem signal in delta clock
-	
+
+	// Waits outside, gets into park and into ticket line
+	SEM_WAIT(parkMutex);					SWAP;	// Only one tasks updates variables at a time (shared memory)
+	myPark.numOutsidePark++;				SWAP;	// Update variables
+	SEM_SIGNAL(parkMutex);					SWAP;	// Another visitor can enter park and update variables now
+
+	SEM_WAIT(dcMutex);						SWAP;	// Only one tasks update dcMutex at a time
+	inDC(rand() % 30, timeSem);		SWAP;	// Inserts timing semaphore in dc, random time within 10 seconds (arrival delay)
+	SEM_SIGNAL(dcMutex);					SWAP;
+	SEM_WAIT(timeSem);						SWAP;	// Enters park after rand time expires and sem signal in delta clock
+
 	// Waits outside, gets into park and into ticket line
 	SEM_WAIT(parkCap);						SWAP;	// Consumes visitor capacity and blocks if there are too many people there
 	SEM_WAIT(parkMutex);					SWAP;	// Only one tasks updates variables at a time (shared memory)
@@ -312,14 +318,14 @@ int visitorTask(int argc, char* argv[])
 
 	// Waits in museum line
 	SEM_WAIT(dcMutex);						SWAP;
-	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in museum line 
+	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in museum line
 	SEM_SIGNAL(dcMutex);					SWAP;
 	SEM_WAIT(timeSem);						SWAP;
 
 	// Gets into museum
 	SEM_WAIT(mCap);							SWAP;	// Consumes museum capacity unit
 	SEM_WAIT(parkMutex);					SWAP;	// Update variables
-	myPark.numInMuseumLine--;				SWAP;	
+	myPark.numInMuseumLine--;				SWAP;
 	myPark.numInMuseum++;					SWAP;
 	SEM_SIGNAL(parkMutex);					SWAP;
 
@@ -327,12 +333,12 @@ int visitorTask(int argc, char* argv[])
 	SEM_WAIT(dcMutex);						SWAP;
 	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in museum
 	SEM_SIGNAL(dcMutex);					SWAP;
-	SEM_WAIT(timeSem);						SWAP;	
+	SEM_WAIT(timeSem);						SWAP;
 	SEM_SIGNAL(mCap);						SWAP;	// Releases museum capacity unit
 
 	// Leaves museum and gets into car line
 	SEM_WAIT(parkMutex);					SWAP;
-	myPark.numInMuseum--;					SWAP;	
+	myPark.numInMuseum--;					SWAP;
 	myPark.numInCarLine++;					SWAP;
 	SEM_SIGNAL(parkMutex);					SWAP;
 
@@ -359,21 +365,15 @@ int visitorTask(int argc, char* argv[])
 	myPark.numInCars++;						SWAP;
 	SEM_SIGNAL(parkMutex);					SWAP;
 	SEM_WAIT(rideDone[id]);					SWAP;	// Waits until tour is over
-	
+
 	// Tour over, get in giftshop line
 	SEM_WAIT(parkMutex);					SWAP;
 	myPark.numInCars--;						SWAP;
 	myPark.numInGiftLine++;					SWAP;
 	SEM_SIGNAL(inGiftLine);					SWAP;
 	SEM_SIGNAL(parkMutex);					SWAP;
-	
 
-	// Waits in giftshop line
-	SEM_WAIT(dcMutex);						SWAP;
-	inDC(rand() % 30, timeSem);				SWAP;	// Wait in gift shop line
-	SEM_SIGNAL(dcMutex);					SWAP;
-	SEM_WAIT(timeSem);						SWAP;
-	
+
 	// Goes into giftshop
 	SEM_WAIT(gsCap);						SWAP;	// Only goes in if the capacity is not reached
 	SEM_WAIT(parkMutex);					SWAP;
@@ -384,18 +384,18 @@ int visitorTask(int argc, char* argv[])
 	// Waits in giftshop
 	SEM_WAIT(dcMutex);						SWAP;
 	inDC(rand() % 30 + 1, timeSem);			SWAP;	// Wait in gift shop 
-	SEM_SIGNAL(dcMutex);					SWAP;
 	SEM_WAIT(timeSem);						SWAP;
-	SEM_SIGNAL(gsCap);						SWAP;	// Releases gsCap resource
+	SEM_SIGNAL(dcMutex);					SWAP;
+	
 
 	// Exits the giftshop and leaves park
+	SEM_SIGNAL(gsCap);						SWAP;	// Releases gsCap resource
 	SEM_WAIT(parkMutex);					SWAP;
 	myPark.numInGiftShop--;					SWAP;
 	SEM_SIGNAL(parkCap);					SWAP;	// Releases resource, another visitor can enter
 	myPark.numInPark--;						SWAP;
 	myPark.numExitedPark++;					SWAP;
 	SEM_SIGNAL(parkMutex);					SWAP;
-
 }
 
 
@@ -444,6 +444,31 @@ int dcMonitorTask(int argc, char* argv[])
 					event[i]->state = 0;
 					flg = 1;
 				}
+		}
+		if (flg) printDeltaClock();
+	}
+	printf("\nNo more events in Delta Clock\n");
+
+	for (i = 0; i < 10; i++)
+	{
+		sprintf(buf, "event[%d]", i);
+		event[i] = createSemaphore(buf, BINARY, 0);
+		inDC(ttime[i], event[i]);
+	}
+	printDeltaClock();
+
+	while (dc->size > 0)
+	{
+		SEM_WAIT(dcChange)
+			flg = 0;
+		for (i = 0; i < 10; i++)
+		{
+			//printf("event[%d]->state: %d\n", i, event[i]->state);
+			if (event[i]->state == 1) {
+				printf("\n  event[%d] signaled", i);
+				event[i]->state = 0;
+				flg = 1;
+			}
 		}
 		if (flg) printDeltaClock();
 	}

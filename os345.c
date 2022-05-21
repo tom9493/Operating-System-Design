@@ -212,6 +212,11 @@ int enQ(PQ* pq, TID tid, int priority)
 
 int deQ(PQ* pq, TID tid)
 {
+	if (pq->q == NULL) 
+	{ 
+		printf("\nWas error\n");
+		return -1; 
+	}
 	if (tid >= 0)
 	{
 		for (int i = 0; i < pq->size; ++i)
@@ -265,14 +270,21 @@ Semaphore* inDC(int time, Semaphore* sem)
 			}
 		}
 	}
+
 	dc->size++;										SWAP;
+	//printf("\Ndc->size - 1 after INCREMENT: %d\n", dc->size - 1); SWAP;
+	fflush(stdout); SWAP;
 	return sem;										SWAP;
 }
 
 Semaphore* outDC()
 {
-	dc->size--;
-	return dc->list[dc->size].sem;
+	if (dc->size > 0) 
+	{ 
+		dc->size--; 
+		//printf("\ndc->size - 1 after DECREMENT: %d\n", dc->size - 1); 
+	}
+	return dc->list[dc->size -1 ].sem;
 }
 
 void printQ(PQ* pq)
