@@ -545,9 +545,11 @@ void powerDown(int code)
 
 	// free ready queue
 	free(rq);
+	
 
 	// ?? release any other system resources
 	// ?? deltaclock (project 3)
+	free(dc);
 
 	RESTORE_OS
 	return;

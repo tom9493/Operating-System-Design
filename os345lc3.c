@@ -419,8 +419,8 @@ void initLC3Memory(int startFrame, int endFrame)
    // initialize frame table
    setFrameTableBits(0, startFrame, endFrame);
    // initialize paged memory
-   accessPage(0, 0, PAGE_INIT);
-	return;
+   accessPage(0, 0, PAGE_INIT);			// Accessing page in swap space is simulating accessing a page in secondary memory, or a hard disk
+	return;								// This is where you go when the pages aren't in main memory and need to be loaded in?
 } // end initLC3Memory
 
 

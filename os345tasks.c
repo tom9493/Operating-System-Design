@@ -28,6 +28,7 @@
 #include "os345signals.h"
 //#include "os345config.h"
 
+#define LC3_RPT     0x2400
 
 extern TCB tcb[];// task control block
 extern int curTask;							// current task #
@@ -84,7 +85,7 @@ int createTask(char* name,						// task name
 			}
 
 			tcb[tid].event = 0;				// suspend semaphore
-			tcb[tid].RPT = 0;					// root page table (project 5)
+			tcb[tid].RPT = LC3_RPT + ((tid) ? ((tid - 1) << 6) : 0);					// root page table (project 5)
 			tcb[tid].cdir = CDIR;			// inherit parent cDir (project 6)
 
 			// define task signals
@@ -94,12 +95,8 @@ int createTask(char* name,						// task name
 			tcb[tid].stack = malloc(STACK_SIZE * sizeof(int));
 
 			// ?? may require inserting task into "ready" queue
-			//printf("\nBefore enQ in createTask. tid: %d\n", tid);
-			//printQ(rq);
 			fflush(stdout);
 			enQ(rq, tid, priority);
-			//printf("rq after enQ in createTask:\n");
-			//printQ(rq);
 
 			if (tid) swapTask();				// do context switch (if not cli)
 			return tid;							// return tcb index (curTask)

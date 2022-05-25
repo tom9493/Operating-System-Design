@@ -74,7 +74,7 @@ int getFrame(int notme)
 //  / / / /     / 	             / /       /
 // F D R P - - f f|f f f f f f f f|S - - - p p p p|p p p p p p p p
 
-#define MMU_ENABLE	0
+#define MMU_ENABLE	1
 
 unsigned short int *getMemAdr(int va, int rwFlg)
 {
@@ -88,19 +88,59 @@ unsigned short int *getMemAdr(int va, int rwFlg)
 
 	// turn off virtual addressing for system RAM
 	if (va < 0x3000) return &memory[va];
+	// tcb[curTask].RPT is a pointer to the beginning of a root page table. The RPTI define will
+	// take the virtual address and extract the bits that increment through the root page table
+	// and add it to the pointer. rpta is now pointing to the correct root page table entry.
+	// Because rpte1 and rpte2 are ints (16 bits/4 bytes), we need them both to represent the
+	// 32-bit page table entry. 
 	rpta = tcb[curTask].RPT + RPTI(va);		// root page table address
 	rpte1 = memory[rpta];					// FDRP__ffffffffff
 	rpte2 = memory[rpta+1];					// S___pppppppppppp
-	if (DEFINED(rpte1))	{ }					// rpte defined
-		else			{ }					// rpte undefined
-	memory[rpta] = SET_REF(rpte1);			// set rpt frame access bit
-
+	if (DEFINED(rpte1))						// rpte defined (Defined if the referenced frame is in main memory)
+	{ 	
+		memHits++;							// A hit because the page this references is in main memory
+	}					
+	else									// rpte undefined
+	{ 
+		rptFrame = getFrame(-1);		// Get frame in main memory we can put the page
+		rpte1 = SET_DEFINED(rptFrame);	// Indicate this is now going to be in main memory
+		if (PAGED(rpte2))					// If referenced page is in the swap space
+		{
+			accessPage(SWAPPAGE(rpte2), rptFrame, PAGE_READ); // SWAPPAGE gets the page bits from rpte2, takes specified page
+		}													  // and moves it from swap space into frame in main memory
+		else				// Need to get page from secondary memory since not in swap space?
+		{
+			rpte1 = SET_DIRTY(rpte1);
+			rpte2 = 0;
+		}
+		memPageFaults++;
+	}					
+	memory[rpta] = rpte1 = SET_REF(SET_PINNED(rpte1));			// set rpt frame access bit
+	memory[rpta + 1] = rpte2;
 	upta = (FRAME(rpte1)<<6) + UPTI(va);	// user page table address
 	upte1 = memory[upta]; 					// FDRP__ffffffffff
 	upte2 = memory[upta+1]; 				// S___pppppppppppp
-	if (DEFINED(upte1))	{ }					// upte defined
-		else			{ }					// upte undefined
+	if (DEFINED(upte1))						// upte defined
+	{ 
+		memHits++;
+	}					
+	else									// upte undefined
+	{ 
+		uptFrame = getFrame(-1);
+		upte1 = SET_DEFINED(uptFrame);
+		if (PAGED(rpte2))
+		{
+			accessPage(SWAPPAGE(upte2), uptFrame, PAGE_READ);
+		}
+		else
+		{
+			upte1 = SET_DIRTY(upte1);
+			upte2 = 0;
+		}
+		memPageFaults++;
+	}					
 	memory[upta] = SET_REF(upte1); 			// set upt frame access bit
+
 	return &memory[(FRAME(upte1)<<6) + FRAMEOFFSET(va)];
 #endif
 } // end getMemAdr
