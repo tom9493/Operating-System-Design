@@ -23,7 +23,7 @@
 #include <assert.h>
 #include "os345.h"
 
-#define NUM_PARENTS			5
+//#define NUM_PARENTS			5
 #define NUM_REPORT_SECONDS	5
 
 // ***********************************************************************
@@ -40,6 +40,9 @@ extern int curTask;					// current task #
 extern int scheduler_mode;			// scheduler mode
 long int group_count[NUM_PARENTS];	// parent group counters
 int num_siblings[NUM_PARENTS];		// number in each group
+
+extern PQ* rq;
+
 
 // ***********************************************************************
 // ***********************************************************************
@@ -94,6 +97,8 @@ int P5_main(int argc, char* argv[])		// project 5
 				   MED_PRIORITY,			// priority
 				   3,						// argc
 				   new_argv);				// argv
+		//printf("returned. waiting");
+		//printQ(rq);
 		SEM_WAIT(parentDead);				// wait for parent to die
 	}
 
@@ -182,14 +187,13 @@ int groupReportTask(int argc, char* argv[])
 	int i;
 	int count = NUM_REPORT_SECONDS;
 	long int sum;
-
+	//printQ(rq);
 	while (1)
 	{
 		while (count-- > 0)
 		{
 		   	// update every second
 			SEM_WAIT(tics1sec);
-
 		}
 
 		sum = 0;
@@ -199,7 +203,7 @@ int groupReportTask(int argc, char* argv[])
 		for (i=0; i<NUM_PARENTS; i++)
 		{
 //			printf("%10ld", group_count[i]);
-			printf("%10ld (%d%%)", group_count[i], (group_count[i] * 100) / sum);
+			if (sum != 0) { printf("%10ld (%d%%)", group_count[i], (group_count[i] * 100) / sum); }
 			group_count[i] = 0;
 		}
 

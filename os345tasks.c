@@ -96,9 +96,14 @@ int createTask(char* name,						// task name
 
 			// ?? may require inserting task into "ready" queue
 			fflush(stdout);
+			tcb[tid].taskTime = 0;
+			if (tid == 0) { tcb[tid].taskTime = 1000; }
+			
 			enQ(rq, tid, priority);
-
+			//printQ(rq);
+			
 			if (tid) swapTask();				// do context switch (if not cli)
+			
 			return tid;							// return tcb index (curTask)
 		}
 	}

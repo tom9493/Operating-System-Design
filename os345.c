@@ -212,16 +212,44 @@ int enQ(PQ* pq, TID tid, int priority)
 
 int deQ(PQ* pq, TID tid)
 {
-	if (pq->q == NULL) 
-	{ 
+	if (pq->q == NULL)
+	{
 		printf("\nWas error\n");
-		return -1; 
+		return -1;
 	}
-	if (tid >= 0)
+	else if (pq->size == 0) { return -2; }
+	else if (tid >= 0)							// Delete particular id, for killing a task
 	{
 		for (int i = 0; i < pq->size; ++i)
 		{
 			if (pq->q[i].tid == tid)			// Found id, make this tid the return value and delete task from queue
+			{
+				int taskId = pq->q[i].tid;		// return id
+				//printf("Ready queue size - 1   --   tid: %d\n", tid);
+				pq->size -= 1;					// size is 1 fewer
+				while (i != pq->size)			// bring all tasks down a value (i stop at size -1 or size? I think this is right. Clear top task?ds)
+				{
+					pq->q[i] = pq->q[i + 1];
+					++i;
+				}
+				return taskId;					// break and stop for loop
+			}
+		}
+		return -1;
+	}
+	else if (scheduler_mode == 0)				// Round-Robin mode
+	{
+		int next = pq->size - 1;
+		int taskId = pq->q[next].tid;
+		//printf("Ready queue size - 1   --   tid: %d\n", tid);
+		pq->size -= 1;
+		return taskId;
+	}
+	else										// Fair scheduler mode
+	{
+		for (int i = pq->size - 1; i >= 0; --i)
+		{
+			if (tcb[pq->q[i].tid].taskTime > 0)	// Found most recent task with time higher than 0
 			{
 				int taskId = pq->q[i].tid;		// return id
 				pq->size -= 1;					// size is 1 fewer
@@ -230,14 +258,10 @@ int deQ(PQ* pq, TID tid)
 					pq->q[i] = pq->q[i + 1];
 					++i;
 				}
-				return tid;						// break and stop for loop
+				return taskId;						// break and stop for loop
 			}
 		}
-		return -1;
-	}
-	else
-	{
-		if (pq->size == 0) { return -1; }		
+		
 		int taskId = pq->q[pq->size - 1].tid;
 		pq->size -= 1;
 		return taskId;
@@ -292,10 +316,47 @@ void printQ(PQ* pq)
 	//printf("Queue total size: %d\n", pq->size);
 	for (int i = 0; i < pq->size; ++i)
 	{
-		printf("Queue[%d]: \n\ttid: %d\n\tpriority: %d\n", i, pq->q[i].tid, pq->q[i].priority);
+		printf("Queue[%d]: \n\ttid: %d\n\tpriority: %d\n\ttime: %d\n", i, pq->q[i].tid, pq->q[i].priority, tcb[pq->q[i].tid].taskTime);
 	}
 	printf("\n");
 	fflush(stdout);
+}
+int check = 0;
+int allocateCycles(int parentTask)
+{
+	int index = 0;
+	int parentTime;
+	int childTIDs[MAX_TASKS];
+
+	if (parentTask == 0) { tcb[0].taskTime += 130; }
+	parentTime = tcb[parentTask].taskTime;
+	
+	for (int i = 1; i < 200; ++i)			// Account for all child tids
+	{
+		if (tcb[i].parent == parentTask && tcb[i].name != NULL)
+		{
+			childTIDs[index] = i;
+			index++;
+		}
+	}
+	
+	if (index == 0) { return 0; }									// This task (at tcb[parentTask]) has no children, so return and don't recurse
+	for (int i = 0; i < index; ++i)
+	{
+		tcb[childTIDs[i]].taskTime = parentTime / (index + 1);		// Each child task gets the parent task's current time divided by num siblings
+	}
+	tcb[parentTask].taskTime = parentTime / (index + 1);			// Parent task gets same, plus the remainder
+	tcb[parentTask].taskTime += parentTime % (index + 1);	
+
+	for (int i = 0; i < index; ++i)
+	{
+		allocateCycles(childTIDs[i]);
+	}
+
+	if (parentTask == 0 && check == 0) { printQ(rq); check = 1; }
+	check++;
+	//printf("check: %d\n", check);
+	return 0;
 }
 
 
@@ -305,34 +366,31 @@ void printQ(PQ* pq)
 //
 static int scheduler()
 {  
-	int nextTask;		// Tid of the next task
+	int nextTask;										// Tid of the next task
 
-	// ?? Design and implement a scheduler that will select the next highest
-	// ?? priority ready task to pass to the system dispatcher.
-
-	// ?? WARNING: You must NEVER call swapTask() from within this function
-	// ?? or any function that it calls.  This is because swapping is
-	// ?? handled entirely in the swapTask function, which, in turn, may
-	// ?? call this function.  (ie. You would create an infinite loop.)
-
-	// ?? Implement a round-robin, preemptive, prioritized scheduler.
-
-	// ?? This code is simply a round-robin scheduler and is just to get
-	// ?? you thinking about scheduling.  You must implement code to handle
-	// ?? priorities, clean up dead tasks, and handle semaphores appropriately.
-
-	if ((nextTask = deQ(rq, -1)) >= 0)
+	
+	if (scheduler_mode == 0)
 	{
-		enQ(rq, nextTask, tcb[nextTask].priority);
+		if ((nextTask = deQ(rq, -1)) >= 0)
+		{
+			//printf("deQ called\n");
+			enQ(rq, nextTask, tcb[nextTask].priority);
+			//printf("Size of ready queue after enQ: %d\n", rq->size);
+		}
 	}
+	else												// Fair scheduler
+	{
+		if ((nextTask = deQ(rq, -1)) >= 0)				// If ready queue is not empty
+		{
+			if (tcb[nextTask].taskTime == 0) { allocateCycles(0); }
+			if (nextTask == -2) { printf("gotcha"); }
+			enQ(rq, nextTask, tcb[nextTask].priority);
+			tcb[nextTask].taskTime--;
+			//printf("next task time: %d\n", tcb[nextTask].taskTime);
+			fflush(stdout);
 
-	//tcb[nextTask].state = S_RUNNING;
-
-	// nextTask = 
-
-
-	// schedule next task								//<-- Original start
-	//nextTask = ++curTask;
+		}
+	}
 
 	// mask sure nextTask is valid
 	while (!tcb[nextTask].name)
@@ -517,6 +575,7 @@ static int initOS()
 	// initialize lc-3 memory
 	initLC3Memory(LC3_MEM_FRAME, 0xF800>>6);
 
+	tcb[0].taskTime = 0;
 	// ?? initialize all execution queues
 
 	return 0;

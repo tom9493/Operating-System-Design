@@ -42,6 +42,7 @@ extern char inBuffer[];					// character input buffer
 extern Semaphore* inBufferReady;		// input buffer ready semaphore
 extern bool diskMounted;				// disk has been mounted
 extern char dirPath[];					// directory path
+extern PQ* rq;
 Command** commands;						// shell commands
 int verbose = 0;
 

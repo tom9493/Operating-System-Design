@@ -182,6 +182,7 @@ unsigned short int *getMemAdr(int va, int rwFlg)
 	rpte1 = memory[rpta];										// FDRP__ffffffffff
 	rpte2 = memory[rpta+1];										// S___pppppppppppp
 	memAccess++;
+	memHits++;
 
 	if (DEFINED(rpte1)) { memHits++; }							// rpte defined (Defined if the referenced frame is in main memory)				
 	else														// rpte undefined
@@ -224,7 +225,7 @@ unsigned short int *getMemAdr(int va, int rwFlg)
 	}					
 	memory[upta] = upte1 = SET_REF(upte1); 			// set upt frame access bit
 	memory[upta + 1] = upte2;
-
+	memAccess++;
 	if (rwFlg)
 	{
 		memory[rpta] = SET_DIRTY(rpte1);

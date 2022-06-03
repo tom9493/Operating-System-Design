@@ -63,6 +63,8 @@
 #define BINARY				0
 #define COUNTING			1
 
+#define NUM_PARENTS			5
+
 // Swap space (P4)
 enum {PAGE_INIT, PAGE_READ, PAGE_OLD_WRITE, PAGE_NEW_WRITE,
 	  PAGE_GET_SIZE, PAGE_GET_READS, PAGE_GET_WRITES, PAGE_GET_ADR, PAGE_FREE};
@@ -85,6 +87,8 @@ typedef struct
 int enQ(PQ*, TID, int);
 int deQ(PQ*, TID);
 void printQ(PQ*);
+
+//int allocateCycles(int);
 
 // semaphore
 typedef struct semaphore				// semaphore
@@ -118,6 +122,7 @@ typedef struct							// task control block
 	Semaphore *event;					// blocked task semaphore
 	void* stack;						// task stack
 	jmp_buf context;					// task context pointer
+	int taskTime;						// task time for project 5
 } TCB;
 
 typedef struct
