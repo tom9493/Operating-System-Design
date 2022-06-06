@@ -296,6 +296,11 @@ int P2_killTask(int argc, char* argv[])			// kill task
 	if (taskId > 0) printf("\nKill Task %d", taskId);
 	else printf("\nKill All Tasks");
 
+	/*if (taskId == 64) 
+	{ 
+		printf("\nKill Task %s", tcb[taskId].name);
+		deQ(rq, taskId);
+	}*/
 	// kill task
 	if (killTask(taskId)) printf("\nkillTask Error!");
 

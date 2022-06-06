@@ -214,7 +214,7 @@ int deQ(PQ* pq, TID tid)
 {
 	if (pq->q == NULL)
 	{
-		printf("\nWas error\n");
+		printf("\nWas error. priority queue q was null\n");
 		return -1;
 	}
 	else if (pq->size == 0) { return -2; }
@@ -225,7 +225,6 @@ int deQ(PQ* pq, TID tid)
 			if (pq->q[i].tid == tid)			// Found id, make this tid the return value and delete task from queue
 			{
 				int taskId = pq->q[i].tid;		// return id
-				//printf("Ready queue size - 1   --   tid: %d\n", tid);
 				pq->size -= 1;					// size is 1 fewer
 				while (i != pq->size)			// bring all tasks down a value (i stop at size -1 or size? I think this is right. Clear top task?ds)
 				{
@@ -241,7 +240,6 @@ int deQ(PQ* pq, TID tid)
 	{
 		int next = pq->size - 1;
 		int taskId = pq->q[next].tid;
-		//printf("Ready queue size - 1   --   tid: %d\n", tid);
 		pq->size -= 1;
 		return taskId;
 	}
@@ -296,8 +294,6 @@ Semaphore* inDC(int time, Semaphore* sem)
 	}
 
 	dc->size++;										SWAP;
-	//printf("\Ndc->size - 1 after INCREMENT: %d\n", dc->size - 1); SWAP;
-	fflush(stdout); SWAP;
 	return sem;										SWAP;
 }
 
@@ -306,7 +302,6 @@ Semaphore* outDC()
 	if (dc->size > 0) 
 	{ 
 		dc->size--; 
-		//printf("\ndc->size - 1 after DECREMENT: %d\n", dc->size - 1); 
 	}
 	return dc->list[dc->size -1 ].sem;
 }
@@ -353,9 +348,7 @@ int allocateCycles(int parentTask)
 		allocateCycles(childTIDs[i]);
 	}
 
-	if (parentTask == 0 && check == 0) { printQ(rq); check = 1; }
-	check++;
-	//printf("check: %d\n", check);
+	
 	return 0;
 }
 
@@ -373,9 +366,7 @@ static int scheduler()
 	{
 		if ((nextTask = deQ(rq, -1)) >= 0)
 		{
-			//printf("deQ called\n");
 			enQ(rq, nextTask, tcb[nextTask].priority);
-			//printf("Size of ready queue after enQ: %d\n", rq->size);
 		}
 	}
 	else												// Fair scheduler
@@ -386,7 +377,6 @@ static int scheduler()
 			if (nextTask == -2) { printf("gotcha"); }
 			enQ(rq, nextTask, tcb[nextTask].priority);
 			tcb[nextTask].taskTime--;
-			//printf("next task time: %d\n", tcb[nextTask].taskTime);
 			fflush(stdout);
 
 		}

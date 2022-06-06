@@ -46,6 +46,7 @@ void semSignal(Semaphore* s)
 {
 	int i;
 	// assert there is a semaphore and it is a legal type
+	if (s == 1 || !s) { return; }
 	assert("semSignal Error" && s && ((s->type == 0) || (s->type == 1)));
 
 	// check semaphore type

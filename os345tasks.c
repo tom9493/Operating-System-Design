@@ -155,6 +155,7 @@ static void exitTask(int taskId)
 
 	if (tcb[taskId].state == S_BLOCKED)
 	{
+		//if (taskId == 64) { printf("\nTask 64 is blocked\n"); }
 		deQ(tcb[taskId].event->pq, taskId);
 		if (tcb[taskId].event->type == COUNTING)
 		{
@@ -182,6 +183,7 @@ int sysKillTask(int taskId)
 	printf("\nKill Task %s\n", tcb[taskId].name);
 
 	// signal task terminated
+	//if (taskSems[taskId] == 1 || !taskSems[taskId]) { printf("\n\nBAD\n\n"); }
 	semSignal(taskSems[taskId]);
 
 	// look for any semaphores created by this task
