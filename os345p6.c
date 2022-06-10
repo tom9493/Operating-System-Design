@@ -1688,12 +1688,12 @@ int fmsGetNextDirEntry(int *dirNum, char* mask, DirEntry* dirEntry, int dir)
 	while(1)
 	{	// load directory sector
 		if (dir)
-		{	// sub directory
+		{	// sub directory -- iterates through 
 			while(loop--)
 			{
 				dirCluster = getFatEntry(dirCluster, FAT1);
-				if (dirCluster == FAT_EOC) return ERR67;
-				if (dirCluster == FAT_BAD) return ERR54;
+				if (dirCluster == FAT_EOC) return ERR67;		// End of directory -- EOC = end of chain
+				if (dirCluster == FAT_BAD) return ERR54;		// Invalid FAT Chain
 				if (dirCluster < 2) return ERR54;
 			}
 			dirSector = C_2_S(dirCluster);

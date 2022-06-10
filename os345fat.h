@@ -30,10 +30,10 @@ typedef unsigned int uint32;
 #define ARCHIVE   0x20 					// same as file
 #define LONGNAME  (READ_ONLY | HIDDEN | SYSTEM | VOLUME)
 
-#define OPEN_READ		0					// read only
+#define OPEN_READ	0					// read only
 #define OPEN_WRITE	1					// write only
 #define OPEN_APPEND	2					// append
-#define OPEN_RDWR		3					// read/write
+#define OPEN_RDWR	3					// read/write
 
 #define ENTRIES_PER_SECTOR 16
 #define FAT_EOC   4095

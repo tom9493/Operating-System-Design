@@ -79,6 +79,8 @@ extern bool diskMounted;					// disk has been mounted
 extern TCB tcb[];							// task control block
 extern int curTask;							// current task #
 
+int numOpenFiles = 0;
+
 
 // ***********************************************************************
 // ***********************************************************************
@@ -88,10 +90,57 @@ extern int curTask;							// current task #
 //
 int fmsCloseFile(int fileDescriptor)
 {
-	// ?? add code here
-	printf("\nfmsCloseFile Not Implemented");
+	int error;
+	char buffer[BYTES_PER_SECTOR];
+	if (!diskMounted) return ERR72;		// Check if disk is mounted
+	if ((fileDescriptor >= NFILES) || (fileDescriptor < 0)) return ERR52;
+	if (OFTable[fileDescriptor].name[0] == 0) return ERR63;
 
-	return ERR63;
+	// C_2_S changes cluster number to sector number
+
+	if (OFTable[fileDescriptor].flags & FILE_ALTERED)
+	{
+		// save back to disk sector
+		int sectorNumber = C_2_S(OFTable[fileDescriptor].currentCluster);
+		if ((error = fmsWriteSector(&OFTable[fileDescriptor].buffer, sectorNumber)) < 0) return error;
+
+		// Get sector data fram the directory cluster sector
+		sectorNumber = C_2_S(OFTable[fileDescriptor].directoryCluster);
+		if ((error = fmsReadSector(&buffer, sectorNumber)) < 0) return error;		// Reading a sector from memory into the buffer
+
+		DirEntry dirEntry;
+
+		// Update dirEntry corresponding to this
+		if ((error = fmsGetDirEntry(OFTable[fileDescriptor].name, &dirEntry)) < 0) return error;
+
+		// Update date time 
+		setDirTimeDate(&dirEntry);
+
+		// Update file size
+		dirEntry.fileSize = OFTable[fileDescriptor].fileSize;
+		// Get dir entry address and save dir entry
+		DirEntry tempDirEntry;
+		for (int i = 0; i < ENTRIES_PER_SECTOR; ++i)
+		{
+			memcpy(&tempDirEntry, &buffer[i * sizeof(DirEntry)], sizeof(DirEntry));		// Go through each entry per sector and copy the buffer of that directory and multiply it by the directory entry a
+
+			if (tempDirEntry.name[0] == 0) return ERR67;				// EOD, why does it return?
+			if (tempDirEntry.name[0] == 0xe5);
+			else if (tempDirEntry.attributes == LONGNAME);
+			else if (fmsMask(OFTable[fileDescriptor].name, tempDirEntry.name, tempDirEntry.extension))	// Matches name. Makes sure OFTable thing matches the name and extension?
+			{
+				memcpy(&buffer[i * sizeof(DirEntry)], &dirEntry, sizeof(DirEntry));		// This is writing the OFT entry back to the buffer, which will write back into memory (after you found the matching name and extension)
+				break;
+			}
+		}
+
+		// Write back to disk sector
+		if ((error = fmsWriteSector(&buffer, sectorNumber)) < 0) return error;			// Writes the changed buffer back to memory
+	}
+	// Set first bit to zero		
+	numOpenFiles--;									// With the file closing, there are 1 fewer files open
+	OFTable[fileDescriptor].name[0] = 0;			// Indicates this OFTable entry is undefined
+	return 0;
 } // end fmsCloseFile
 
 
@@ -114,6 +163,7 @@ int fmsCloseFile(int fileDescriptor)
 //
 int fmsDefineFile(char* fileName, int attribute)
 {
+	if (!diskMounted) return ERR72;		// Check if disk is mounted
 	// ?? add code here
 	printf("\nfmsDefineFile Not Implemented");
 
@@ -131,6 +181,7 @@ int fmsDefineFile(char* fileName, int attribute)
 //
 int fmsDeleteFile(char* fileName)
 {
+	if (!diskMounted) return ERR72;		// Check if disk is mounted
 	// ?? add code here
 	printf("\nfmsDeleteFile Not Implemented");
 
@@ -162,10 +213,47 @@ int fmsDeleteFile(char* fileName)
 //
 int fmsOpenFile(char* fileName, int rwMode)
 {
-	// ?? add code here
-	printf("\nfmsOpenFile Not Implemented");
+	FCB newFCB;
+	DirEntry dirEntry;
+	int error;
 
-	return ERR61;
+	// Error checking
+	if (!diskMounted) return ERR72;														// Check if disk is mounted
+	if (isValidFileName(fileName) < 1) return ERR50;									// Invald file name
+	if (numOpenFiles >= 32) return ERR70;												// Too many files open
+	if ((error = fmsGetDirEntry(fileName, &dirEntry)) < 0) return error;					// File not defined, or file space full? Probs not
+
+	// Make sure file is not already open
+	for (int i = 0; i < NFILES; ++i)
+	{
+		//printf("OFTable[%d].name -- dirEntry.name: %s -- %s\n", i, OFTable[i].name, dirEntry.name);
+		if (strncmp(OFTable[i].name, dirEntry.name, 11) == 0) { return ERR62; }				// strncmp returns 0 if same
+	}
+
+	memcpy(newFCB.name, dirEntry.name, 8);
+	memcpy(newFCB.extension, dirEntry.extension, 3);									// Memcpy so not null terminated
+	newFCB.attributes = dirEntry.attributes;
+	newFCB.directoryCluster = CDIR;
+	newFCB.startCluster = dirEntry.startCluster;
+	newFCB.currentCluster = 0;
+
+	if (rwMode == 1) { newFCB.fileSize = 0; }
+	else { newFCB.fileSize = dirEntry.fileSize; }
+
+	newFCB.pid = curTask;
+	newFCB.mode = rwMode;
+	newFCB.flags = 0;
+
+	if (rwMode != 2) { newFCB.fileIndex = 0; }
+	else { newFCB.fileIndex = dirEntry.fileSize; }	
+
+	// Find available slot to insert file into OFTable
+	for (int i = 0; i < NFILES; ++i)
+	{
+		if ((OFTable[i].name[0] == 0x00) || (OFTable[i].name[0] == 0xe5)) { OFTable[i] = newFCB; numOpenFiles++; return i; }
+	}
+
+	return ERR65;
 } // end fmsOpenFile
 
 
@@ -182,10 +270,51 @@ int fmsOpenFile(char* fileName, int rwMode)
 //
 int fmsReadFile(int fileDescriptor, char* buffer, int nBytes)
 {
-	// ?? add code here
-	printf("\nfmsReadFile Not Implemented");
-
-	return ERR63;
+	if (!diskMounted) return ERR72;		// Check if disk is mounted, should be in every function
+	// If file descriptor is in boundaries
+	if ((fileDescriptor >= NFILES) || (fileDescriptor < 0)) { return ERR52; }
+	int error, nextCluster;
+	FCB* entry;
+	int numBytesRead = 0;
+	unsigned int bytesLeft, bufferIndex;
+	entry = &OFTable[fileDescriptor];							// 
+	if (entry->name[0] == 0) return ERR63;						// File not open
+	if ((entry->mode == 1) || (entry->mode == 2)) return ERR85; // Incorrect mode
+	while (nBytes > 0)
+	{
+		if (entry->fileSize == entry->fileIndex) return (numBytesRead ? numBytesRead : ERR66); // Read fewer than requested or none (EOF)
+		bufferIndex = entry->fileIndex % BYTES_PER_SECTOR;
+		if ((bufferIndex == 0) && (entry->fileIndex || !entry->currentCluster))
+		{
+			if (entry->currentCluster == 0)
+			{
+				if (entry->startCluster == 0) return ERR66;
+				nextCluster = entry->startCluster;
+				entry->fileIndex = 0;
+			}
+			else
+			{
+				nextCluster = getFatEntry(entry->currentCluster, FAT1);
+				if (nextCluster == FAT_EOC) return numBytesRead;
+			}
+			if (entry->flags & BUFFER_ALTERED)
+			{
+				if ((error = fmsWriteSector(entry->buffer, C_2_S(entry->currentCluster)))) return error;
+				entry->flags &= ~BUFFER_ALTERED;
+			}
+			entry->currentCluster = nextCluster;
+			if ((error = fmsReadSector(entry->buffer, C_2_S(entry->currentCluster)))) return error;
+		}
+		bytesLeft = BYTES_PER_SECTOR - bufferIndex;
+		if (bytesLeft > nBytes) bytesLeft = nBytes;
+		if (bytesLeft > (entry->fileSize - entry->fileIndex)) bytesLeft = entry->fileSize - entry->fileIndex;
+		memcpy(buffer, &entry->buffer[bufferIndex], bytesLeft);
+		entry->fileIndex += bytesLeft;
+		numBytesRead += bytesLeft;
+		buffer += bytesLeft;
+		nBytes -= bytesLeft;
+	}
+	return numBytesRead;
 } // end fmsReadFile
 
 
@@ -200,6 +329,7 @@ int fmsReadFile(int fileDescriptor, char* buffer, int nBytes)
 //
 int fmsSeekFile(int fileDescriptor, int index)
 {
+	if (!diskMounted) return ERR72;		// Check if disk is mounted
 	// ?? add code here
 	printf("\nfmsSeekFile Not Implemented");
 
@@ -219,6 +349,7 @@ int fmsSeekFile(int fileDescriptor, int index)
 //
 int fmsWriteFile(int fileDescriptor, char* buffer, int nBytes)
 {
+	if (!diskMounted) return ERR72;		// Check if disk is mounted
 	// ?? add code here
 	printf("\nfmsWriteFile Not Implemented");
 
