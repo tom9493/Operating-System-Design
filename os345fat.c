@@ -368,7 +368,7 @@ int fmsDeleteFile(char* fileName)
 	// Make sure file is not already open
 	for (int i = 0; i < NFILES; ++i)
 	{
-		if (strncmp(OFTable[i].name, dirEntry.name, 11) == 0) { return ERR62; }			// strncmp returns 0 if same
+		if (strncmp(OFTable[i].name, dirEntry.name, 11) == 0) { return ERR69; }			// strncmp returns 0 if same
 	}
 
 	int loop = index / ENTRIES_PER_SECTOR;
@@ -551,11 +551,26 @@ int fmsReadFile(int fileDescriptor, char* buffer, int nBytes)
 //
 int fmsSeekFile(int fileDescriptor, int index)
 {
-	if (!diskMounted) return ERR72;		// Check if disk is mounted
-	// ?? add code here
-	printf("\nfmsSeekFile Not Implemented");
+	int error, nextCluster;
+	unsigned int bytesLeft, bufIndex;
+	FCB* entry;
 
-	return ERR63;
+	if (!diskMounted) return ERR72;		// Check if disk is mounted
+	if ((fileDescriptor >= NFILES) || (fileDescriptor < 0)) return ERR52;
+	entry = &OFTable[fileDescriptor];
+	if (index >= entry->fileSize) return ERR80;
+
+	int i = index / BYTES_PER_SECTOR;
+	entry->currentCluster = entry->startCluster;
+	while ((i--) > 0)
+	{
+		nextCluster = getFatEntry(entry->currentCluster, FAT1);
+		entry->currentCluster = nextCluster;
+	}
+	if (error = fmsReadSector(&entry->buffer, C_2_S(entry->currentCluster))) return error;
+	entry->fileIndex = index;
+
+	return index;
 } // end fmsSeekFile
 
 
@@ -571,9 +586,71 @@ int fmsSeekFile(int fileDescriptor, int index)
 //
 int fmsWriteFile(int fileDescriptor, char* buffer, int nBytes)
 {
-	if (!diskMounted) return ERR72;		// Check if disk is mounted
-	// ?? add code here
-	printf("\nfmsWriteFile Not Implemented");
+	int error, nextCluster;
+	FCB* entry;
+	int numBytesWritten = 0;
+	unsigned int bytesLeft, bufIndex;
 
-	return ERR63;
+	if (!diskMounted) return ERR72;						// Check if disk is mounted
+	if ((fileDescriptor >= NFILES) || (fileDescriptor < 0)) return ERR52;
+	entry = &OFTable[fileDescriptor];
+	if (entry->name[0] == 0) return ERR63;				// File isn't open
+	if (entry->attributes == READ_ONLY) return ERR84;			// Illegal permissions
+	if ((entry->mode != 1) && (entry->mode != 3)) return ERR85;
+
+	if (entry->startCluster == 0)						// File empty, find start cluster
+	{
+		int cluster = 2;
+		while (getFatEntry(cluster, FAT1) != 0) cluster++;
+		entry->startCluster = cluster;
+		setFatEntry(entry->startCluster, FAT_EOC, FAT1);// Start cluster is only one so EOC
+		memcpy(FAT2, FAT1, 4608);						// Copy FAT1 to FAT2
+	}
+
+	while (nBytes > 0)
+	{
+		bufIndex = entry->fileIndex % BYTES_PER_SECTOR;
+		// First, set nextCluster to write to if buffer index is 0
+		if ((bufIndex == 0) && (entry->fileIndex || !entry->currentCluster)) // If we're at the start of a cluster
+		{
+			if (entry->currentCluster == 0)
+			{
+				if (entry->startCluster == 0) return ERR66;	// startCluster set to 0 when reached end of file
+				nextCluster = entry->startCluster;
+				entry->fileIndex = 0;
+			}
+			else
+			{
+				nextCluster = getFatEntry(entry->currentCluster, FAT1);	// Get next cluster based on current
+				if (nextCluster == FAT_EOC)					// If end of cluster chain, need to find a new cluster to continue
+				{
+					int cluster = 2;
+					while (getFatEntry(cluster, FAT1) != 0) cluster++;
+					setFatEntry(entry->currentCluster, cluster, FAT1);	// Set FAT of current to new found cluster
+					setFatEntry(cluster, FAT_EOC, FAT1);	// New cluster is the new EOC
+					memcpy(FAT2, FAT1, 4608);				// reflect change in FAT2
+					nextCluster = cluster;
+				}
+			}
+			if (entry->flags & BUFFER_ALTERED)				// If altered flag set, write to memory before writing to next cluster
+			{
+				if (error = fmsWriteSector(entry->buffer, C_2_S(entry->currentCluster))) return error;
+				entry->flags &= ~BUFFER_ALTERED;
+			}
+
+			entry->currentCluster = nextCluster;			// Set currentCluster to nextCluster to finally write to it
+			if (error = fmsReadSector(entry->buffer, C_2_S(nextCluster))) return error; // Read memory of sector into buffer
+		}
+		bytesLeft = BYTES_PER_SECTOR - bufIndex;
+		if (bytesLeft > nBytes) bytesLeft = nBytes;
+		memcpy(&entry->buffer[bufIndex], buffer, bytesLeft);// Read given buffer into entry buffer
+		entry->flags |= BUFFER_ALTERED;
+		entry->flags |= FILE_ALTERED;
+		entry->fileIndex += bytesLeft;
+		if (entry->fileIndex > entry->fileSize) entry->fileSize = entry->fileIndex;
+		numBytesWritten += bytesLeft;
+		buffer += bytesLeft;
+		nBytes -= bytesLeft;
+	}
+	return numBytesWritten;
 } // end fmsWriteFile
