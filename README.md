@@ -4,7 +4,7 @@ The program is a shell with various commands and key presses that do particular 
 This is an explanation of each project:
 
 P1: Here, I implemented the shell that would run all the other projects. It deals with handling tasks, which can run in either the foreground or background. It takes
-commands from the command line and performs the apporpiate operations. It also handles signals sent by certain key presses. There's also functionality to edit the
+commands from the command line and performs the appropiate operations. It also handles signals sent by certain key presses. There's also functionality to edit the
 command line and recall previously executed commands. Commands in quotations are treated as a single string. I dealt with c strings extensively here, as well as dynamically allocating memory to the heap. The mapping for particular commands/shortcuts and their associated functions can be found in p1.c
 
 P2: For this project, I replaced the simplistic 2-state scheduler with a 5-state, preemptive, prioritized, round-robin scheduler using ready and blocked task queues.
