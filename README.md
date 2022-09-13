@@ -1,4 +1,4 @@
-# CS345Project
+# Operating Systems Design
 These are the files associated with my Operating Systems Design class. We implemented a number of projects by adding to the starter code given to us by the professor.
 The program is a shell with various commands and key presses that do particular things. Commands "p1" through "p6" run the various projects to completion. 
 This is an explanation of each project:
